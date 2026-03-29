@@ -1149,7 +1149,8 @@ function HomeTab({ user, onNavigate, foodItems, waterCups, weightEntries, moveIt
             <div onClick={()=>onNavigate('track','meals')} style={{ fontSize:12, color:C.primary, fontWeight:600, cursor:'pointer' }}>View All →</div>
           </div>
           {user?.plan==='premium' ? (() => {
-            const todayIdx = Math.min(new Date().getDay()===0?4:new Date().getDay()-1, 4);
+            const d = new Date().getDay(); // 0=Sun
+            const todayIdx = d === 0 ? 6 : d - 1; // maps to MEAL_PLANS[0..6]
             const todayPlan = MEAL_PLANS[todayIdx];
             const mealColors = { breakfast:{bg:`${C.primary}10`,dot:C.primary}, lunch:{bg:`${C.accent}15`,dot:C.accent}, snack:{bg:`${C.primary}06`,dot:'#6B9A5E'}, dinner:{bg:`${C.primary}08`,dot:'#3D6B33'} };
             return (
@@ -2307,11 +2308,71 @@ const MEAL_PLANS = [
       },
     }
   },
+  {
+    day: 'Saturday', meals: {
+      breakfast: {
+        name:'Saturday Morning Shakshuka', cal:340, protein:22, carbs:24, fat:18,
+        time:'9:00 AM', prep:'25 min', emoji:'🍳',
+        ingredients:['4 large eggs','1 can (14 oz) crushed tomatoes','1 red bell pepper, diced','1 medium onion, diced','3 cloves garlic, minced','1 tsp cumin','1 tsp paprika','½ tsp chili flakes','2 tbsp olive oil','Salt, pepper','Fresh parsley or cilantro','Optional: crumbled feta'],
+        steps:['Heat olive oil in a wide skillet over medium heat.','Sauté onion and bell pepper for 5-6 minutes until softened.','Add garlic, cumin, paprika, and chili flakes. Stir and cook 1 minute.','Pour in crushed tomatoes. Season with salt and pepper. Simmer 8-10 minutes until slightly thickened.','Make 4 small wells in the tomato sauce. Crack one egg into each well.','Cover the skillet and cook 5-7 minutes until whites are set but yolks are still slightly runny.','Garnish with fresh parsley and optional feta. Serve directly from the skillet with whole grain toast.'],
+      },
+      lunch: {
+        name:'Grilled Chicken & Roasted Veggie Bowls', cal:460, protein:40, carbs:38, fat:14,
+        time:'12:30 PM', prep:'30 min', emoji:'🥘',
+        ingredients:['4 oz chicken breast','1 cup sweet potato, cubed','1 cup broccoli florets','½ red onion, sliced','½ cup cooked farro or barley','2 tbsp olive oil','1 tsp garlic powder','1 tsp smoked paprika','Salt, pepper','Lemon tahini drizzle: 2 tbsp tahini, juice of 1 lemon, 2 tbsp water, pinch of salt'],
+        steps:['Preheat oven to 425°F. Toss sweet potato, broccoli, and onion with 1 tbsp olive oil, garlic powder, paprika, salt, and pepper. Roast 22-25 min.','Rub chicken with remaining olive oil, salt, pepper, and paprika. Grill or pan-sear 5-6 min per side.','Whisk together lemon tahini ingredients until smooth.','Build your bowl: farro base, sliced chicken, roasted vegetables.','Drizzle generously with lemon tahini.'],
+      },
+      snack: {
+        name:'Dark Chocolate & Almond Butter Bites', cal:200, protein:5, carbs:18, fat:13,
+        time:'3:30 PM', prep:'5 min', emoji:'🍫',
+        ingredients:['1 oz dark chocolate (70%+)','1 tbsp almond butter','5 whole almonds','Optional: sprinkle of sea salt'],
+        steps:['Break dark chocolate into pieces.','Serve alongside almond butter for dipping.','Add almonds for extra crunch and protein.','A small sprinkle of sea salt brings out the chocolate flavor beautifully.','Tip: This is an intentional, grace-centered treat — enjoy it slowly and mindfully!'],
+      },
+      dinner: {
+        name:'Herb-Roasted Chicken Thighs with Root Vegetables', cal:490, protein:44, carbs:30, fat:20,
+        time:'6:30 PM', prep:'45 min', emoji:'🍗',
+        ingredients:['4 bone-in, skin-on chicken thighs (or skinless to reduce fat)','3 medium carrots, cut into chunks','2 medium parsnips, cubed','1 large sweet potato, cubed','1 whole head of garlic, halved crosswise','3 tbsp olive oil','1 tbsp fresh rosemary, chopped','1 tbsp fresh thyme','Salt, pepper, lemon zest'],
+        steps:['Preheat oven to 425°F. Pat chicken dry — this is key for crispy skin.','Toss vegetables and garlic with 2 tbsp olive oil, rosemary, thyme, salt, and pepper. Spread in a roasting pan.','Rub chicken with remaining oil, lemon zest, salt, and pepper. Place on top of vegetables.','Roast 38-42 minutes until chicken skin is golden and internal temperature reaches 165°F.','Rest 5 minutes before serving. Squeeze the roasted garlic out of its skin over everything — it\'s sweet and incredible.','Tip: This is a wonderful Saturday dinner to make while spending time with family. The aroma alone fills the home with warmth.'],
+      },
+    }
+  },
+  {
+    day: 'Sunday', meals: {
+      breakfast: {
+        name:'Sunday Scripture Pancakes', cal:380, protein:14, carbs:60, fat:10,
+        time:'9:30 AM', prep:'25 min', emoji:'🥞',
+        ingredients:['1 cup whole wheat flour','1 tsp baking powder','½ tsp baking soda','1 tbsp honey','1 egg','1 cup buttermilk (or milk + 1 tsp vinegar, rested 5 min)','1 tbsp coconut oil, melted','½ tsp vanilla extract','Pinch of cinnamon','Toppings: fresh berries, a drizzle of honey, and a dollop of Greek yogurt'],
+        steps:['Whisk together flour, baking powder, baking soda, and cinnamon in a bowl.','In a separate bowl, whisk egg, buttermilk, honey, oil, and vanilla.','Pour wet ingredients into dry. Stir gently — lumps are fine! Overmixing makes pancakes tough.','Heat a non-stick pan over medium-low heat. Lightly grease with coconut oil.','Pour ¼ cup batter per pancake. Cook until bubbles form on top (2-3 min), then flip and cook 1-2 min more.','Serve warm with berries, a drizzle of honey, and Greek yogurt.','Sabbath tip: Make these slowly, enjoy the process, eat together as a family. Rest and nourishment go hand in hand.'],
+      },
+      lunch: {
+        name:'Sunday Leftover Grain Bowl', cal:410, protein:18, carbs:58, fat:14,
+        time:'12:30 PM', prep:'10 min', emoji:'🥗',
+        ingredients:['1 cup any cooked grain (rice, quinoa, farro — use what you have)','1 cup roasted vegetables (use leftovers from the week)','½ cup canned chickpeas or lentils, drained','Handful of fresh greens','2 tbsp hummus or tahini','1 lemon, juiced','1 tbsp olive oil','Salt, pepper, fresh herbs'],
+        steps:['This is a grace-based meal — there are no rules, only nourishment!','Layer your grains in a bowl.','Add whatever roasted vegetables you have on hand.','Top with chickpeas or lentils for protein.','Add a handful of fresh greens.','Drizzle with olive oil and lemon juice. Add a generous dollop of hummus.','Season to taste and enjoy the simplicity of using what you already have.','This practice of using what you have is its own spiritual act — gratitude and stewardship together.'],
+      },
+      snack: {
+        name:'Sliced Apple with Cottage Cheese', cal:175, protein:14, carbs:24, fat:2,
+        time:'3:00 PM', prep:'3 min', emoji:'🍎',
+        ingredients:['1 medium apple, sliced','½ cup low-fat cottage cheese','Pinch of cinnamon','Optional: drizzle of honey'],
+        steps:['Slice apple into wedges.','Spoon cottage cheese into a small bowl alongside.','Sprinkle cinnamon over the cottage cheese.','Drizzle with honey if desired.','A perfect Sunday afternoon snack — light enough to not spoil dinner, nourishing enough to hold you.'],
+      },
+      dinner: {
+        name:'Sunday Soul Soup — Lemon Chicken & White Bean', cal:400, protein:36, carbs:38, fat:10,
+        time:'5:30 PM', prep:'40 min', emoji:'🍲',
+        ingredients:['1 lb chicken breast or thighs, cut into bite-sized pieces','2 cans (15 oz) white beans (cannellini), drained and rinsed','3 cups baby spinach','4 cloves garlic, minced','1 medium onion, diced','2 carrots, diced','2 celery stalks, diced','5 cups low-sodium chicken broth','1 lemon, juiced and zested','1 tsp Italian herbs','2 tbsp olive oil','Salt, pepper','Fresh parsley for serving'],
+        steps:['Heat olive oil in a large pot over medium heat.','Sauté onion, carrots, and celery for 5-6 minutes until softened.','Add garlic and herbs. Cook 1 minute, stirring constantly.','Add chicken pieces. Brown lightly for 3-4 minutes.','Pour in broth. Bring to a boil, then reduce to a simmer. Cook 15 minutes until chicken is cooked through.','Add white beans and cook 5 more minutes.','Stir in spinach, lemon juice, and lemon zest. Season generously with salt and pepper.','Ladle into bowls and top with fresh parsley.','Sunday gift: Make a double batch — Monday\'s lunch is already done. That\'s stewarding your time with grace.'],
+      },
+    }
+  },
 ];
 
 function MealPlanner({ user, onUpgrade, setFoodItems }) {
   const isPremium = user?.plan === 'premium';
-  const [selectedDay, setSelectedDay] = useState(Math.min(new Date().getDay() === 0 ? 4 : new Date().getDay() - 1, 4));
+  const [selectedDay, setSelectedDay] = useState((() => {
+    const d = new Date().getDay(); // 0=Sun,1=Mon,...,6=Sat
+    // Map JS day (0=Sun) to MEAL_PLANS index (0=Mon...4=Fri,5=Sat,6=Sun)
+    return d === 0 ? 6 : d - 1;
+  })());
   const [expandedMeal, setExpandedMeal] = useState(null);
   const [recipeView, setRecipeView] = useState(null);
   const [addedMeals, setAddedMeals] = useState(new Set());
@@ -2486,10 +2547,11 @@ function MealPlanner({ user, onUpgrade, setFoodItems }) {
 
       {/* Weekly plan view */}
       {!showFavsOnly && (<>
-      <div style={{ display:'flex', gap:6, marginBottom:16 }}>
-        {['Mon','Tue','Wed','Thu','Fri'].map((d, i) => (
+      {/* Day selector — scrollable row for all 7 days */}
+      <div style={{ display:'flex', gap:6, marginBottom:16, overflowX:'auto', paddingBottom:4 }}>
+        {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d, i) => (
           <div key={d} onClick={()=>{ setSelectedDay(i); setExpandedMeal(null); }}
-            style={{ flex:1, textAlign:'center', padding:'8px 0', borderRadius:10, background:selectedDay===i?C.primary:C.bgAlt, color:selectedDay===i?C.white:C.muted, fontSize:12, fontWeight:700, cursor:'pointer', transition:'all .15s' }}>
+            style={{ flexShrink:0, minWidth:44, textAlign:'center', padding:'8px 10px', borderRadius:10, background:selectedDay===i?C.primary:C.bgAlt, color:selectedDay===i?C.white:C.muted, fontSize:12, fontWeight:700, cursor:'pointer', transition:'all .15s' }}>
             {d}
           </div>
         ))}
@@ -4679,19 +4741,25 @@ export default function FlourishAndFaith() {
   const [pwaPrompt, setPwaPrompt] = useState(null);
   const [showPwaBanner, setShowPwaBanner] = useState(false);
 
-  // Capture the PWA install event
+  // Capture the PWA install event (Android Chrome only)
   useEffect(() => {
     const handler = (e) => {
       e.preventDefault();
       setPwaPrompt(e);
-      // Show the banner after the user has been in the app for 30 seconds
-      setTimeout(() => {
-        const installed = localStorage.getItem('ff_pwa_installed');
-        const dismissed = localStorage.getItem('ff_pwa_dismissed');
-        if (!installed && !dismissed) setShowPwaBanner(true);
-      }, 30000);
+      const installed = localStorage.getItem('ff_pwa_installed');
+      const dismissed = localStorage.getItem('ff_pwa_dismissed');
+      if (!installed && !dismissed) setShowPwaBanner(true);
     };
     window.addEventListener('beforeinstallprompt', handler);
+
+    // iOS detection — show manual instructions banner after 3 seconds
+    const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const isInStandaloneMode = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+    const dismissed = localStorage.getItem('ff_pwa_dismissed');
+    if (isIos && !isInStandaloneMode && !dismissed) {
+      setTimeout(() => setShowPwaBanner(true), 3000);
+    }
+
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
 
@@ -4699,14 +4767,14 @@ export default function FlourishAndFaith() {
     if (!pwaPrompt) return;
     pwaPrompt.prompt();
     const { outcome } = await pwaPrompt.userChoice;
-    if (outcome === 'accepted') {
-      localStorage.setItem('ff_pwa_installed', '1');
-    } else {
-      localStorage.setItem('ff_pwa_dismissed', '1');
-    }
+    if (outcome === 'accepted') localStorage.setItem('ff_pwa_installed', '1');
+    else localStorage.setItem('ff_pwa_dismissed', '1');
     setShowPwaBanner(false);
     setPwaPrompt(null);
   };
+
+  // Detect iOS for showing manual instructions
+  const isIos = /iphone|ipad|ipod/i.test(typeof navigator !== 'undefined' ? navigator.userAgent : '');
 
   // Clear all user-specific localStorage keys
   const clearAllUserData = () => {
@@ -4766,19 +4834,33 @@ export default function FlourishAndFaith() {
 
       {/* PWA Install Banner */}
       {showPwaBanner && (
-        <div style={{ position:'fixed', bottom:80, left:16, right:16, zIndex:9998, background:C.text, borderRadius:16, padding:'14px 16px', display:'flex', alignItems:'center', gap:12, boxShadow:'0 8px 32px rgba(0,0,0,0.35)', animation:'fadeUp 0.4s ease both' }}>
-          <div style={{ width:40, height:40, borderRadius:11, background:C.primary, display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, flexShrink:0 }}>🌿</div>
+        <div style={{ position:'fixed', bottom:80, left:12, right:12, zIndex:9998, background:C.text, borderRadius:18, padding:'14px 16px', display:'flex', alignItems:'flex-start', gap:12, boxShadow:'0 8px 32px rgba(0,0,0,0.4)', animation:'fadeUp 0.4s ease both' }}>
+          <div style={{ width:42, height:42, borderRadius:11, background:C.primary, display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, flexShrink:0 }}>🌿</div>
           <div style={{ flex:1, minWidth:0 }}>
-            <div style={{ fontSize:13, fontWeight:700, color:'#fff', marginBottom:2 }}>Add to Home Screen</div>
-            <div style={{ fontSize:11, color:'rgba(255,255,255,.55)', lineHeight:1.4 }}>Install Flourish & Faith for quick access anytime</div>
+            <div style={{ fontSize:13, fontWeight:700, color:'#fff', marginBottom:4 }}>
+              {isIos ? 'Add to Your Home Screen' : 'Install Flourish & Faith'}
+            </div>
+            {isIos ? (
+              <div style={{ fontSize:11, color:'rgba(255,255,255,.6)', lineHeight:1.5 }}>
+                Tap the <strong style={{ color:'rgba(255,255,255,.85)' }}>Share</strong> button{' '}
+                <span style={{ fontSize:13 }}>⎙</span> at the bottom of Safari, then tap{' '}
+                <strong style={{ color:'rgba(255,255,255,.85)' }}>"Add to Home Screen"</strong>
+              </div>
+            ) : (
+              <div style={{ fontSize:11, color:'rgba(255,255,255,.6)', lineHeight:1.5 }}>
+                Install the app for quick access — works offline too!
+              </div>
+            )}
           </div>
           <div style={{ display:'flex', flexDirection:'column', gap:6, flexShrink:0 }}>
-            <button onClick={installPwa} style={{ background:C.accent, border:'none', borderRadius:8, padding:'6px 14px', fontSize:12, fontWeight:700, color:C.text, cursor:'pointer', whiteSpace:'nowrap' }}>
-              Install
-            </button>
+            {!isIos && (
+              <button onClick={installPwa} style={{ background:C.accent, border:'none', borderRadius:8, padding:'7px 14px', fontSize:12, fontWeight:700, color:C.text, cursor:'pointer', whiteSpace:'nowrap' }}>
+                Install
+              </button>
+            )}
             <button onClick={()=>{ setShowPwaBanner(false); localStorage.setItem('ff_pwa_dismissed','1'); }}
-              style={{ background:'none', border:'none', padding:'4px 0', fontSize:11, color:'rgba(255,255,255,.4)', cursor:'pointer' }}>
-              Not now
+              style={{ background:'none', border:'none', padding:'4px 0', fontSize:11, color:'rgba(255,255,255,.4)', cursor:'pointer', whiteSpace:'nowrap' }}>
+              {isIos ? 'Dismiss' : 'Not now'}
             </button>
           </div>
         </div>
