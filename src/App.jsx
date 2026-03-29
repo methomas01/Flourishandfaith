@@ -4141,13 +4141,10 @@ const LP = {
         font-size: 32px !important;
       }
 
-      /* ── FAQ section — stack on mobile, FAQs above CTA ── */
-      .lp-faq-grid {
+      /* ── FAQ accordion grid — single column on mobile ── */
+      .lp-faq-accordion-grid {
         grid-template-columns: 1fr !important;
-        gap: 32px !important;
       }
-      .lp-faq-accordion { order: -1 !important; }
-      .lp-faq-cta { order: 1 !important; }
       .lp-section {
         padding: 40px 20px !important;
       }
@@ -4553,44 +4550,49 @@ function LandingPage({ onSignup, onSignIn }) {
       {/* ── FAQ ── */}
       <section id="faq" className="lp-section lp-faq-section" style={{ background:C.bg, padding:'90px 0' }}>
         <div style={S.container}>
-          <div className="lp-faq-grid" style={{ display:'grid', gridTemplateColumns:'1fr 1.1fr', gap:80, alignItems:'start' }}>
-            {/* Left — CTA box */}
-            <div className="lp-faq-cta">
-              <div style={{ fontSize:11, fontWeight:500, color:C.muted, letterSpacing:'.04em', textTransform:'uppercase', marginBottom:14, display:'inline-flex', alignItems:'center', gap:7, background:C.bgAlt, border:`1px solid ${C.border}`, borderRadius:99, padding:'5px 15px' }}>
-                <span style={{ width:6, height:6, borderRadius:'50%', background:'#7FA876', display:'inline-block' }}/>Got Questions?
-              </div>
-              <h2 style={{ ...S.serif, fontSize:'clamp(28px,3.5vw,46px)', fontWeight:700, lineHeight:1.1, color:C.text, marginBottom:16 }}>
-                Everything you need to <em style={{ fontStyle:'italic', color:C.primary }}>know</em>
-              </h2>
-              <p style={{ fontSize:14, color:C.muted, lineHeight:1.7, marginBottom:28 }}>If your question isn't here, we're always just a message away.</p>
-              {/* CTA box */}
-              <div style={{ background:`linear-gradient(145deg, ${C.bgAlt}, #EDF4E9)`, borderRadius:20, padding:32, border:`1px solid ${C.border}` }}>
-                <div style={{ width:52, height:52, borderRadius:14, background:'rgba(90,123,79,.12)', display:'flex', alignItems:'center', justifyContent:'center', marginBottom:14 }}>
-                  <svg width={26} height={26} viewBox="0 0 24 24" fill="none" stroke={C.primary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg>
-                </div>
-                <div style={{ ...S.serif, fontSize:24, fontWeight:700, color:C.text, marginBottom:8 }}>Ready to flourish?</div>
-                <p style={{ fontSize:13, color:C.muted, lineHeight:1.65, marginBottom:20 }}>Join thousands of Christian women honoring their bodies, deepening their faith, and transforming their lives.</p>
-                <button className="lp-btn-hero" onClick={onSignup} style={{ width:'100%', padding:'13px', background:C.primary, border:'none', borderRadius:12, color:'#fff', fontSize:14, fontWeight:600, cursor:'pointer', marginBottom:10 }}>Start Free Today</button>
-                <button className="lp-btn-outline" onClick={onSignup} style={{ width:'100%', padding:'12px', border:`1.5px solid ${C.primary}`, borderRadius:12, background:'transparent', color:C.primary, fontSize:13, fontWeight:600, cursor:'pointer' }}>Try Premium Free — 7 Days</button>
-              </div>
+
+          {/* Header — centered, full width */}
+          <div style={{ textAlign:'center', marginBottom:48 }}>
+            <div style={{ fontSize:11, fontWeight:500, color:C.muted, letterSpacing:'.04em', textTransform:'uppercase', marginBottom:14, display:'inline-flex', alignItems:'center', gap:7, background:C.bgAlt, border:`1px solid ${C.border}`, borderRadius:99, padding:'5px 15px' }}>
+              <span style={{ width:6, height:6, borderRadius:'50%', background:'#7FA876', display:'inline-block' }}/>Got Questions?
             </div>
-            {/* Right — accordion */}
-            <div className="lp-faq-accordion">
-              {LP_FAQ.map((item, i)=>(
-                <div key={i} style={{ borderBottom:`1px solid ${C.border}`, ...(i===0?{borderTop:`1px solid ${C.border}`}:{}) }}>
-                  <button className="lp-faq-trigger" onClick={()=>setOpenFaq(openFaq===i?null:i)} style={{ width:'100%', display:'flex', justifyContent:'space-between', alignItems:'center', padding:'20px 0', background:'none', border:'none', cursor:'pointer', gap:16, textAlign:'left' }}>
-                    <span className="lp-faq-q" style={{ fontSize:15, fontWeight:500, color:C.text, lineHeight:1.4, transition:'color .15s' }}>{item.q}</span>
-                    <div style={{ width:28, height:28, borderRadius:'50%', background:openFaq===i?C.primary:C.bgAlt, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'all .25s', transform:openFaq===i?'rotate(45deg)':'none' }}>
-                      <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke={openFaq===i?'#fff':C.primary} strokeWidth={3} strokeLinecap="round"><line x1={12} y1={5} x2={12} y2={19}/><line x1={5} y1={12} x2={19} y2={12}/></svg>
-                    </div>
-                  </button>
-                  {openFaq===i && (
-                    <div style={{ fontSize:14, color:C.muted, lineHeight:1.78, paddingBottom:18 }}>{item.a}</div>
-                  )}
-                </div>
-              ))}
-            </div>
+            <h2 className="lp-section-h2" style={{ ...S.serif, fontSize:'clamp(28px,3.5vw,46px)', fontWeight:700, lineHeight:1.1, color:C.text, marginBottom:14 }}>
+              Everything you need to <em style={{ fontStyle:'italic', color:C.primary }}>know</em>
+            </h2>
+            <p style={{ fontSize:15, color:C.muted, lineHeight:1.7, maxWidth:520, margin:'0 auto' }}>
+              If your question isn't here, we're always just a message away.
+            </p>
           </div>
+
+          {/* FAQ accordion — full width, two-col on desktop */}
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0 60px', maxWidth:960, margin:'0 auto 56px' }} className="lp-faq-accordion-grid">
+            {LP_FAQ.map((item, i) => (
+              <div key={i} style={{ borderBottom:`1px solid ${C.border}`, ...(i<=1?{borderTop:`1px solid ${C.border}`}:{}) }}>
+                <button className="lp-faq-trigger" onClick={()=>setOpenFaq(openFaq===i?null:i)}
+                  style={{ width:'100%', display:'flex', justifyContent:'space-between', alignItems:'center', padding:'20px 0', background:'none', border:'none', cursor:'pointer', gap:16, textAlign:'left' }}>
+                  <span className="lp-faq-q" style={{ fontSize:15, fontWeight:500, color:C.text, lineHeight:1.4, transition:'color .15s' }}>{item.q}</span>
+                  <div style={{ width:28, height:28, borderRadius:'50%', background:openFaq===i?C.primary:C.bgAlt, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'all .25s', transform:openFaq===i?'rotate(45deg)':'none' }}>
+                    <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke={openFaq===i?'#fff':C.primary} strokeWidth={3} strokeLinecap="round"><line x1={12} y1={5} x2={12} y2={19}/><line x1={5} y1={12} x2={19} y2={12}/></svg>
+                  </div>
+                </button>
+                {openFaq===i && (
+                  <div style={{ fontSize:14, color:C.muted, lineHeight:1.78, paddingBottom:18 }}>{item.a}</div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Ready to flourish CTA — centered below FAQs */}
+          <div style={{ maxWidth:480, margin:'0 auto', background:`linear-gradient(145deg, ${C.bgAlt}, #EDF4E9)`, borderRadius:22, padding:'36px 32px', border:`1px solid ${C.border}`, textAlign:'center' }}>
+            <div style={{ width:52, height:52, borderRadius:14, background:'rgba(90,123,79,.12)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 16px' }}>
+              <svg width={26} height={26} viewBox="0 0 24 24" fill="none" stroke={C.primary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg>
+            </div>
+            <div style={{ ...S.serif, fontSize:26, fontWeight:700, color:C.text, marginBottom:10 }}>Ready to flourish?</div>
+            <p style={{ fontSize:14, color:C.muted, lineHeight:1.65, marginBottom:24 }}>Join thousands of Christian women honoring their bodies, deepening their faith, and transforming their lives.</p>
+            <button className="lp-btn-hero" onClick={onSignup} style={{ width:'100%', padding:'14px', background:C.primary, border:'none', borderRadius:12, color:'#fff', fontSize:15, fontWeight:600, cursor:'pointer', marginBottom:10 }}>Start Free Today</button>
+            <button className="lp-btn-outline" onClick={onSignup} style={{ width:'100%', padding:'13px', border:`1.5px solid ${C.primary}`, borderRadius:12, background:'transparent', color:C.primary, fontSize:14, fontWeight:600, cursor:'pointer' }}>Try Premium Free — 7 Days</button>
+          </div>
+
         </div>
       </section>
 
