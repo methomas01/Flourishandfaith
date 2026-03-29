@@ -2,38 +2,57 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+    <!-- ── Primary Meta ── -->
+    <title>Flourish & Faith — Faith-Integrated Wellness</title>
+    <meta name="description" content="The first wellness app designed for Christian women. Daily devotionals, grace-centered tracking, Sage AI coach, and accountability circles." />
     <meta name="theme-color" content="#5A7B4F" />
+
+    <!-- ── PWA / Install ── -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+
+    <!-- ── Apple (iOS) PWA support ── -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="Flourish" />
-    <meta name="description" content="Faith-integrated wellness for Christian women. Daily devotionals, grace-centered tracking, and a community of sisters." />
+    <meta name="apple-mobile-web-app-title" content="Flourish & Faith" />
+    <link rel="apple-touch-icon" href="/icons/icon-180.png" />
 
-    <!-- Open Graph (for link previews) -->
-    <meta property="og:title" content="Flourish & Faith" />
-    <meta property="og:description" content="Flourishing body, faithful heart. Faith-integrated wellness for Christian women." />
+    <!-- Apple splash screens (optional but professional) -->
+    <link rel="apple-touch-startup-image"
+      href="/icons/splash-2048x2732.png"
+      media="(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2)" />
+    <link rel="apple-touch-startup-image"
+      href="/icons/splash-1668x2224.png"
+      media="(device-width: 834px) and (device-height: 1112px) and (-webkit-device-pixel-ratio: 2)" />
+    <link rel="apple-touch-startup-image"
+      href="/icons/splash-1125x2436.png"
+      media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)" />
+    <link rel="apple-touch-startup-image"
+      href="/icons/splash-750x1334.png"
+      media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2)" />
+
+    <!-- ── Favicon ── -->
+    <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/icons/icon-16.png" />
+
+    <!-- ── Open Graph (social sharing) ── -->
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://flourishandfaith.io" />
+    <meta property="og:title" content="Flourish & Faith — Flourishing body, faithful heart." />
+    <meta property="og:description" content="The first wellness app designed for Christian women. Daily devotionals, grace-centered tracking, Sage AI coach, and accountability circles." />
+    <meta property="og:image" content="/icons/og-image.png" />
+    <meta property="og:url" content="https://flourishandfaith.com" />
 
-    <!-- Icons -->
-    <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-192.png" />
-    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+    <!-- ── Twitter Card ── -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Flourish & Faith" />
+    <meta name="twitter:description" content="Faith-integrated wellness for Christian women." />
+    <meta name="twitter:image" content="/icons/og-image.png" />
 
-    <!-- Fonts -->
+    <!-- ── Preconnect for performance ── -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Inter:wght@400;500;600&display=swap"
-      rel="stylesheet"
-    />
-
-    <title>Flourish & Faith</title>
-
-    <style>
-      /* Prevent flash of unstyled content */
-      body { margin: 0; background: #FEFDFB; }
-      #root { min-height: 100vh; }
-    </style>
   </head>
   <body>
     <div id="root"></div>

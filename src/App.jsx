@@ -1,9 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { createClient } from '@supabase/supabase-js';
-
-const SUPABASE_URL = 'https://uftunwcxpthsxodxeczu.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVmdHVud2N4cHRoc3hvZHhlY3p1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1Nzc5MTMsImV4cCI6MjA5MDE1MzkxM30.niKecNM1O4qNi6m1Jap1LHFV3yhyomq9z_O9x30Qqew';
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 import {
   Home, BarChart2, Users, User, Settings, BookOpen, Droplets, ArrowLeft,
   Plus, ChevronRight, Check, X, Eye, EyeOff, CheckCircle, Bell, Award,
@@ -169,7 +164,56 @@ Your approach:
 
 Topics you cover: nutrition, movement, hydration, rest, faith, habit-building, body image, community, accountability, and spiritual wellness.`;
 
-// ─── SAGE MESSAGE LIMIT HELPERS ───────────────────────────────────────────────
+// ─── STREAK & ACTIVITY HELPERS ────────────────────────────────────────────────
+function calculateStreak() {
+  // Count consecutive days where devDone was true by checking ff_journals entries
+  try {
+    const journals = JSON.parse(localStorage.getItem('ff_journals') || '{}');
+    const week = JSON.parse(localStorage.getItem('ff_week') || '{}');
+    // Build a set of days with activity (journal entries = devotional done)
+    const activeDays = new Set(Object.keys(journals));
+    let streak = 0;
+    const d = new Date();
+    for (let i = 0; i < 365; i++) {
+      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      if (activeDays.has(key)) { streak++; d.setDate(d.getDate()-1); }
+      else break;
+    }
+    return streak;
+  } catch { return 0; }
+}
+
+function formatRelativeTime(id) {
+  // id is a Date.now() timestamp used as the post id
+  try {
+    const diff = Date.now() - id;
+    if (diff < 60000) return 'Just now';
+    if (diff < 3600000) return `${Math.floor(diff/60000)}m ago`;
+    if (diff < 86400000) return `${Math.floor(diff/3600000)}h ago`;
+    return `${Math.floor(diff/86400000)}d ago`;
+  } catch { return 'Recently'; }
+}
+
+function getActivityData() {
+  // Returns 90-day activity map: { 'YYYY-MM-DD': { food, water, movement, devotion } }
+  try {
+    const journals  = new Set(Object.keys(JSON.parse(localStorage.getItem('ff_journals') || '{}')));
+    const weights   = new Set((JSON.parse(localStorage.getItem('ff_weight')  || '[]')).map(e=>e.date));
+    const result = {};
+    const today = new Date();
+    for (let i = 0; i < 90; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      const hasDevot  = journals.has(key);
+      const hasWeight = weights.has(key);
+      if (hasDevot || hasWeight || key === getTodayKey()) {
+        result[key] = { devotion: hasDevot, weight: hasWeight };
+      }
+    }
+    return result;
+  } catch { return {}; }
+}
 const FREE_SAGE_LIMIT = 10;
 function getSageMsgCount() {
   try {
@@ -597,7 +641,65 @@ function AuthScreen({ onDone }) {
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [agreed, setAgreed] = useState(false);
-  const canSubmit = tab==='signup' ? (name&&email&&password&&agreed) : (email&&password);
+  const [errors, setErrors] = useState({});
+  const [forgotMode, setForgotMode] = useState(false);
+  const [forgotSent, setForgotSent] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+
+  const isValidEmail = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+
+  const validate = () => {
+    const errs = {};
+    if (tab === 'signup' && !name.trim()) errs.name = 'Please enter your name';
+    if (!email.trim()) errs.email = 'Email is required';
+    else if (!isValidEmail(email)) errs.email = 'Please enter a valid email address';
+    if (!password) errs.password = 'Password is required';
+    else if (tab === 'signup' && password.length < 8) errs.password = 'Password must be at least 8 characters';
+    if (tab === 'signup' && !agreed) errs.agreed = 'Please agree to the Terms & Privacy Policy';
+    return errs;
+  };
+
+  const handleSubmit = () => {
+    const errs = validate();
+    if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+    setErrors({});
+    onDone({ name: name.trim() || 'Friend', email: email.trim().toLowerCase(), isLogin: tab === 'login' });
+  };
+
+  if (forgotMode) return (
+    <div style={{ minHeight:'100vh', background:C.bg, display:'flex', flexDirection:'column', alignItems:'center', padding:'44px 24px 32px' }}>
+      <div style={{ marginBottom:28, textAlign:'center' }}>
+        <div style={{ fontSize:32, marginBottom:8 }}>🔑</div>
+        <div className="serif" style={{ fontSize:26, fontWeight:700, color:C.text }}>Reset Password</div>
+      </div>
+      <div style={{ width:'100%', maxWidth:420 }}>
+        {forgotSent ? (
+          <div style={{ background:`${C.success}16`, border:`1px solid ${C.success}40`, borderRadius:14, padding:22, textAlign:'center' }}>
+            <div style={{ fontSize:28, marginBottom:10 }}>📧</div>
+            <div style={{ fontWeight:600, color:C.text, marginBottom:6 }}>Check your inbox</div>
+            <div style={{ fontSize:13, color:C.muted, lineHeight:1.65, marginBottom:16 }}>
+              If an account exists for <strong>{forgotEmail}</strong>, we've sent a password reset link.
+            </div>
+            <Btn full onClick={()=>{ setForgotMode(false); setForgotSent(false); setTab('login'); }}>
+              Back to Sign In
+            </Btn>
+          </div>
+        ) : (
+          <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+            <div style={{ fontSize:14, color:C.muted, lineHeight:1.65, marginBottom:4 }}>
+              Enter the email address associated with your account and we'll send you a reset link.
+            </div>
+            <Input label="Email Address" type="email" placeholder="you@example.com" value={forgotEmail} onChange={e=>setForgotEmail(e.target.value)}/>
+            <Btn full onClick={()=>{ if(isValidEmail(forgotEmail)) setForgotSent(true); }} style={{ opacity: isValidEmail(forgotEmail)?1:0.6 }}>
+              Send Reset Link
+            </Btn>
+            <Btn full variant="ghost" onClick={()=>setForgotMode(false)}>← Back to Sign In</Btn>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <div style={{ minHeight:'100vh', background:C.bg, display:'flex', flexDirection:'column', alignItems:'center', padding:'44px 24px 32px' }}>
       <div style={{ marginBottom:28, textAlign:'center' }}>
@@ -606,41 +708,67 @@ function AuthScreen({ onDone }) {
       </div>
       <div style={{ display:'flex', background:C.bgAlt, borderRadius:12, padding:4, marginBottom:26, width:'100%', maxWidth:420 }}>
         {['signup','login'].map(t=>(
-          <div key={t} onClick={()=>setTab(t)} className="tab-item" style={{ flex:1, textAlign:'center', padding:'9px 0', borderRadius:9, background:tab===t?C.white:'transparent', fontWeight:600, fontSize:14, color:tab===t?C.text:C.muted, boxShadow:tab===t?'0 1px 6px rgba(0,0,0,0.09)':'none' }}>
+          <div key={t} onClick={()=>{ setTab(t); setErrors({}); }} className="tab-item"
+            style={{ flex:1, textAlign:'center', padding:'9px 0', borderRadius:9, background:tab===t?C.white:'transparent', fontWeight:600, fontSize:14, color:tab===t?C.text:C.muted, boxShadow:tab===t?'0 1px 6px rgba(0,0,0,0.09)':'none' }}>
             {t==='signup'?'Sign Up':'Sign In'}
           </div>
         ))}
       </div>
-      <div className="fadeIn" key={tab} style={{ width:'100%', maxWidth:420, display:'flex', flexDirection:'column', gap:15 }}>
-        {tab==='signup' && <Input label="First Name" placeholder="Your name" value={name} onChange={e=>setName(e.target.value)} />}
-        <Input label="Email" type="email" placeholder="you@example.com" value={email} onChange={e=>setEmail(e.target.value)} />
-        <Input label="Password" type={showPw?'text':'password'} placeholder="Min. 8 characters" value={password} onChange={e=>setPassword(e.target.value)}
-          right={<button onClick={()=>setShowPw(!showPw)} style={{ background:'none', border:'none', cursor:'pointer', color:C.muted, padding:0, display:'flex' }}>{showPw?<EyeOff size={16}/>:<Eye size={16}/>}</button>} />
+      <div className="fadeIn" key={tab} style={{ width:'100%', maxWidth:420, display:'flex', flexDirection:'column', gap:14 }}>
         {tab==='signup' && (
-          <label style={{ display:'flex', gap:10, alignItems:'flex-start', cursor:'pointer' }}>
-            <input type="checkbox" checked={agreed} onChange={e=>setAgreed(e.target.checked)} style={{ marginTop:3, accentColor:C.primary, width:16, height:16 }} />
-            <span style={{ fontSize:13, color:C.muted, lineHeight:1.5 }}>I agree to the <span style={{ color:C.primary }}>Terms of Service</span> and <span style={{ color:C.primary }}>Privacy Policy</span></span>
-          </label>
+          <div>
+            <Input label="First Name" placeholder="Your name" value={name} onChange={e=>{ setName(e.target.value); setErrors(p=>({...p,name:''})); }}/>
+            {errors.name && <div style={{ fontSize:12, color:'#E57373', marginTop:4 }}>⚠ {errors.name}</div>}
+          </div>
         )}
-        <Btn full onClick={()=>onDone({ name:name||'Friend', email, isLogin: tab==='login' })} style={{ marginTop:4, opacity:canSubmit?1:0.6 }}>
-          {tab==='signup'?'Create Account':'Sign In'}
+        <div>
+          <Input label="Email" type="email" placeholder="you@example.com" value={email} onChange={e=>{ setEmail(e.target.value); setErrors(p=>({...p,email:''})); }}/>
+          {errors.email && <div style={{ fontSize:12, color:'#E57373', marginTop:4 }}>⚠ {errors.email}</div>}
+        </div>
+        <div>
+          <Input label="Password" type={showPw?'text':'password'} placeholder={tab==='signup'?'Min. 8 characters':'Your password'} value={password} onChange={e=>{ setPassword(e.target.value); setErrors(p=>({...p,password:''})); }}
+            right={<button onClick={()=>setShowPw(!showPw)} style={{ background:'none', border:'none', cursor:'pointer', color:C.muted, padding:0, display:'flex' }}>{showPw?<EyeOff size={16}/>:<Eye size={16}/>}</button>}/>
+          {errors.password && <div style={{ fontSize:12, color:'#E57373', marginTop:4 }}>⚠ {errors.password}</div>}
+        </div>
+        {tab==='signup' && (
+          <div>
+            <label style={{ display:'flex', gap:10, alignItems:'flex-start', cursor:'pointer' }}>
+              <input type="checkbox" checked={agreed} onChange={e=>{ setAgreed(e.target.checked); setErrors(p=>({...p,agreed:''})); }} style={{ marginTop:3, accentColor:C.primary, width:16, height:16 }} />
+              <span style={{ fontSize:13, color:C.muted, lineHeight:1.5 }}>I agree to the <span style={{ color:C.primary }}>Terms of Service</span> and <span style={{ color:C.primary }}>Privacy Policy</span></span>
+            </label>
+            {errors.agreed && <div style={{ fontSize:12, color:'#E57373', marginTop:4 }}>⚠ {errors.agreed}</div>}
+          </div>
+        )}
+        <Btn full onClick={handleSubmit} style={{ marginTop:4 }}>
+          {tab==='signup' ? 'Create Account' : 'Sign In'}
         </Btn>
+        {tab==='login' && (
+          <button onClick={()=>{ setForgotMode(true); setForgotEmail(email); }}
+            style={{ background:'none', border:'none', cursor:'pointer', color:C.primary, fontSize:13, fontWeight:500, padding:'2px 0' }}>
+            Forgot your password?
+          </button>
+        )}
         <div style={{ display:'flex', alignItems:'center', gap:10, color:C.muted, fontSize:12 }}>
-          <div style={{ flex:1, height:1, background:C.border }} />OR<div style={{ flex:1, height:1, background:C.border }} />
+          <div style={{ flex:1, height:1, background:C.border }}/>OR<div style={{ flex:1, height:1, background:C.border }}/>
         </div>
         <button className="btn" style={{ width:'100%', padding:'12px 22px', border:`1.5px solid ${C.border}`, borderRadius:10, background:C.white, display:'flex', alignItems:'center', justifyContent:'center', gap:10, fontSize:14, fontWeight:600, color:C.text, cursor:'pointer' }}>
           <span style={{ fontSize:15 }}>G</span> Continue with Google
         </button>
-        {tab==='login' && <Btn full variant="ghost" style={{ fontSize:13 }}>Forgot Password?</Btn>}
       </div>
     </div>
   );
 }
 
-// ─── GOAL SETTING ─────────────────────────────────────────────────────────────
-const GOAL_OPTS = ['Lose weight','Build healthier habits','Strengthen my faith','Find community','Improve my energy','Honor my body as a temple'];
 function GoalSettingScreen({ onNext }) {
   const [sel, setSel] = useState([]);
+  const handleNext = () => {
+    if (sel.length > 0) {
+      try {
+        localStorage.setItem('ff_goals', JSON.stringify(sel));
+      } catch(e) {}
+    }
+    onNext();
+  };
   return (
     <div style={{ minHeight:'100vh', background:C.bg, padding:'40px 22px', display:'flex', flexDirection:'column' }}>
       <Bar val={1} max={4} style={{ marginBottom:28 }} />
@@ -657,7 +785,7 @@ function GoalSettingScreen({ onNext }) {
           );
         })}
       </div>
-      <Btn full onClick={onNext} style={{ marginTop:24 }}>Next <ChevronRight size={15}/></Btn>
+      <Btn full onClick={handleNext} style={{ marginTop:24 }}>Next <ChevronRight size={15}/></Btn>
     </div>
   );
 }
@@ -897,20 +1025,28 @@ function HomeTab({ user, onNavigate, foodItems, waterCups, weightEntries, moveIt
     <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
 
       {/* ── GREETING ── */}
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-        <div>
-          <div style={{ fontSize:13, color:C.muted }}>{today}</div>
-          <div className="serif" style={{ fontSize:26, fontWeight:800, color:C.text, lineHeight:1.15 }}>
-            Good {new Date().getHours()<12?'morning':'afternoon'}, {user?.name||'friend'} 🌿
+      {(() => {
+        const streak = calculateStreak();
+        const hour = new Date().getHours();
+        const greeting = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening';
+        return (
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+            <div>
+              <div style={{ fontSize:13, color:C.muted }}>{today}</div>
+              <div className="serif" style={{ fontSize:26, fontWeight:800, color:C.text, lineHeight:1.15 }}>
+                Good {greeting}, {user?.name||'friend'} 🌿
+              </div>
+            </div>
+            {streak > 0 && (
+              <div style={{ background:`${C.accent}22`, border:`1px solid ${C.accent}40`, borderRadius:12, padding:'6px 12px', textAlign:'center', cursor:'pointer' }} onClick={()=>{}}>
+                <div style={{ fontSize:16 }}>🔥</div>
+                <div style={{ fontSize:12, fontWeight:800, color:'#8B6914' }}>{streak}</div>
+                <div style={{ fontSize:9, color:'#8B6914', fontWeight:600 }}>day{streak!==1?'s':''}</div>
+              </div>
+            )}
           </div>
-        </div>
-        {devCompletedToday && (
-          <div style={{ background:`${C.accent}22`, border:`1px solid ${C.accent}40`, borderRadius:12, padding:'6px 12px', textAlign:'center' }}>
-            <div style={{ fontSize:16 }}>🔥</div>
-            <div style={{ fontSize:10, fontWeight:700, color:'#8B6914' }}>Streak!</div>
-          </div>
-        )}
-      </div>
+        );
+      })()}
 
       {/* ── DEVOTIONAL — TOP OF PAGE ── */}
       <div onClick={()=>setDevOpen(true)}
@@ -1061,7 +1197,7 @@ function HomeTab({ user, onNavigate, foodItems, waterCups, weightEntries, moveIt
               <div style={{ flex:1, minWidth:0 }}>
                 <div style={{ display:'flex', justifyContent:'space-between' }}>
                   <span style={{ fontWeight:600, fontSize:13, color:C.text }}>{latestPost.name}</span>
-                  <span style={{ fontSize:11, color:C.muted }}>{latestPost.time}</span>
+                  <span style={{ fontSize:11, color:C.muted }}>{formatRelativeTime(latestPost.id)}</span>
                 </div>
                 <div style={{ fontSize:13, color:C.muted, lineHeight:1.5, marginTop:3, overflow:'hidden', display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical' }}>
                   {latestPost.text}
@@ -1844,60 +1980,174 @@ function WeightLogger({ onBack, entries, setEntries, weightUnit='lbs', appSettin
 }
 
 // ─── MOVEMENT LOGGER ─────────────────────────────────────────────────────────
-function MovementLogger({ onBack, entries, setEntries }) {
+function ActivityHeatmap({ weightEntries=[], moveEntries=[] }) {
+  const today = new Date();
+  const days = [];
+  for (let i = 89; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const moved = moveEntries.some(e => e.date === key);
+    const weighed = weightEntries.some(e => e.date === key);
+    days.push({ key, moved, weighed, dow: d.getDay() });
+  }
+  const weeks = [];
+  let week = [];
+  for (let i = 0; i < days[0].dow; i++) week.push(null);
+  days.forEach(d => { week.push(d); if (week.length === 7) { weeks.push(week); week = []; } });
+  if (week.length) { while (week.length < 7) week.push(null); weeks.push(week); }
+  const totalMoved = days.filter(d => d.moved).length;
+  const streak = (() => { let s=0; for(let i=days.length-1;i>=0;i--){if(days[i].moved)s++;else break;} return s; })();
+  return (
+    <Card style={{ marginBottom:14 }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
+        <div style={{ fontWeight:600, fontSize:14, color:C.text }}>90-Day Activity</div>
+        <div style={{ fontSize:10, color:C.muted, display:'flex', gap:10 }}>
+          <span style={{ display:'inline-flex', alignItems:'center', gap:4 }}><span style={{ width:10, height:10, borderRadius:2, background:C.primary, display:'inline-block' }}/> Movement</span>
+          <span style={{ display:'inline-flex', alignItems:'center', gap:4 }}><span style={{ width:10, height:10, borderRadius:2, background:C.accent+'99', display:'inline-block' }}/> Weight</span>
+        </div>
+      </div>
+      <div style={{ overflowX:'auto', paddingBottom:4 }}>
+        <div style={{ display:'flex', gap:3, minWidth:'fit-content' }}>
+          {weeks.map((wk, wi) => (
+            <div key={wi} style={{ display:'flex', flexDirection:'column', gap:3 }}>
+              {wk.map((d, di) => (
+                <div key={di} style={{ width:12, height:12, borderRadius:3, background: !d?'transparent': d.moved&&d.weighed?C.primary: d.moved?C.primary+'CC': d.weighed?C.accent+'88': C.border, flexShrink:0 }}/>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={{ display:'flex', gap:18, marginTop:12 }}>
+        {[{l:'Days active',v:totalMoved,c:C.primary},{l:'Current streak',v:streak,c:C.accent},{l:'Consistency',v:Math.round((totalMoved/90)*100)+'%',c:'#3D6B33'}].map(s=>(
+          <div key={s.l} style={{ textAlign:'center' }}>
+            <div style={{ fontSize:20, fontWeight:800, color:s.c }}>{s.v}</div>
+            <div style={{ fontSize:10, color:C.muted }}>{s.l}</div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+function MovementLogger({ onBack, entries, setEntries, weightEntries=[] }) {
   const [open, setOpen] = useState(false);
-  const [ne, setNe] = useState({type:'',duration:''});
-  const icons = {Walk:'🚶',Run:'🏃',Yoga:'🧘',Strength:'🏋️',Cycling:'🚴',Swimming:'🏊',Dance:'💃',Other:'⚡'};
-  const add=()=>{
-    if(!ne.type||!ne.duration) return;
-    setEntries(p=>[{id:Date.now(),type:ne.type,duration:parseInt(ne.duration),date:getTodayKey()},...p]);
-    setNe({type:'',duration:''});
+  const [ne, setNe] = useState({type:'',duration:'',intensity:'moderate'});
+  const icons = {Walk:'🚶',Run:'🏃',Yoga:'🧘','Strength Training':'🏋️',Cycling:'🚴',Swimming:'🏊',Dance:'💃',Pilates:'🤸',Hiking:'⛰️',Other:'⚡'};
+
+  const todayKey = getTodayKey();
+  const todayEntries = entries.filter(e => e.date === todayKey);
+  const totalMinToday = todayEntries.reduce((s,e) => s+(e.duration||0), 0);
+  const allTimeMins = entries.reduce((s,e) => s+(e.duration||0), 0);
+
+  const weeklyMins = (() => {
+    const days = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(); d.setDate(d.getDate()-i);
+      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      const mins = entries.filter(e=>e.date===key).reduce((s,e)=>s+(e.duration||0),0);
+      days.push({ mins, label:['S','M','T','W','T','F','S'][d.getDay()] });
+    }
+    return days;
+  })();
+  const maxMins = Math.max(...weeklyMins.map(d=>d.mins), 30);
+
+  const add = () => {
+    if (!ne.type || !ne.duration) return;
+    setEntries(p=>[{id:Date.now(), type:ne.type, duration:parseInt(ne.duration), intensity:ne.intensity, date:getTodayKey()}, ...p]);
+    setNe({type:'',duration:'',intensity:'moderate'});
     setOpen(false);
   };
+
   return (
     <div>
       <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:18 }}>
-        <BackBtn onClick={onBack}/><div className="serif" style={{ fontSize:24, fontWeight:700 }}>Movement Log</div>
+        <BackBtn onClick={onBack}/>
+        <div className="serif" style={{ fontSize:24, fontWeight:700 }}>Movement Log</div>
       </div>
-      <Card style={{ marginBottom:14, display:'flex', alignItems:'center', gap:16 }}>
-        <div style={{ flex:1 }}>
-          <div style={{ fontSize:13, color:C.muted, marginBottom:3 }}>Today</div>
-          <div style={{ fontSize:32, fontWeight:700, color:C.primary }}>{entries.length} <span style={{ fontSize:15, color:C.muted, fontWeight:400 }}>session{entries.length!==1?'s':''}</span></div>
-        </div>
-        <div style={{ flex:2 }}><Bar val={entries.length} max={5}/></div>
-      </Card>
-      {entries.length === 0 && (
-        <div style={{ textAlign:'center', padding:'28px 0', color:C.muted, fontSize:13, fontStyle:'italic' }}>Nothing logged yet. Every step counts — log your first session! 🏃‍♀️</div>
-      )}
-      <div style={{ display:'flex', flexDirection:'column', gap:9, marginBottom:14 }}>
-        {entries.map(e=>(
-          <Card key={e.id} pad={14} style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-            <div>
-              <div style={{ fontWeight:600, fontSize:14, color:C.text }}>{e.type}</div>
-              <div style={{ fontSize:12, color:C.muted, marginTop:2 }}>{e.date} · {e.duration} min</div>
-            </div>
-            <div style={{ fontSize:26 }}>{Object.keys(icons).find(k=>e.type.includes(k))?icons[Object.keys(icons).find(k=>e.type.includes(k))]:'⚡'}</div>
-          </Card>
+
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:14 }}>
+        {[
+          {label:'Today',val:totalMinToday,unit:'min',color:C.primary,emoji:'⏱'},
+          {label:'Sessions',val:todayEntries.length,unit:'today',color:'#3D6B33',emoji:'✅'},
+          {label:'All Time',val:allTimeMins>=60?`${Math.floor(allTimeMins/60)}h`:allTimeMins+'m',unit:'moved',color:C.accent,emoji:'🏆'},
+        ].map(s=>(
+          <div key={s.label} style={{ background:C.bgAlt, borderRadius:14, padding:'12px 10px', textAlign:'center' }}>
+            <div style={{ fontSize:18, marginBottom:4 }}>{s.emoji}</div>
+            <div style={{ fontSize:18, fontWeight:800, color:s.color, lineHeight:1 }}>{s.val}</div>
+            <div style={{ fontSize:10, color:C.muted, marginTop:3 }}>{s.unit}</div>
+          </div>
         ))}
       </div>
+
+      <Card style={{ marginBottom:14 }}>
+        <div style={{ fontWeight:600, fontSize:14, color:C.text, marginBottom:14 }}>This Week</div>
+        <div style={{ display:'flex', gap:6, alignItems:'flex-end', height:60 }}>
+          {weeklyMins.map((d,i) => (
+            <div key={i} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:3 }}>
+              <div style={{ width:'100%', borderRadius:'4px 4px 0 0', background:d.mins>0?C.primary:`${C.primary}20`, height:`${Math.max(4,(d.mins/maxMins)*50)}px`, transition:'height .4s' }}/>
+              <div style={{ fontSize:9, color:C.muted, fontWeight:600 }}>{d.label}</div>
+              {d.mins>0&&<div style={{ fontSize:8, color:C.primary, fontWeight:700 }}>{d.mins}m</div>}
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      <ActivityHeatmap weightEntries={weightEntries} moveEntries={entries}/>
+
+      {todayEntries.length > 0 && (
+        <Card style={{ marginBottom:14 }}>
+          <div style={{ fontWeight:600, fontSize:14, color:C.text, marginBottom:12 }}>Today</div>
+          {todayEntries.map(e=>(
+            <div key={e.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 0', borderBottom:`1px solid ${C.border}` }}>
+              <div style={{ fontSize:24 }}>{icons[e.type]||'⚡'}</div>
+              <div style={{ flex:1 }}>
+                <div style={{ fontWeight:600, fontSize:14, color:C.text }}>{e.type}</div>
+                <div style={{ fontSize:12, color:C.muted }}>{e.duration} min · {e.intensity||'moderate'} intensity</div>
+              </div>
+              <button onClick={()=>setEntries(p=>p.filter(x=>x.id!==e.id))} style={{ background:'none', border:'none', cursor:'pointer', color:C.muted, padding:4, display:'flex' }}><X size={13}/></button>
+            </div>
+          ))}
+        </Card>
+      )}
+
+      {todayEntries.length===0 && (
+        <div style={{ textAlign:'center', padding:'24px 0 16px', color:C.muted, fontSize:13, fontStyle:'italic' }}>Nothing logged yet. Every step counts! 🏃‍♀️</div>
+      )}
+
       <Btn full onClick={()=>setOpen(true)}><Plus size={15}/> Log Movement</Btn>
+
       <Modal open={open} onClose={()=>setOpen(false)} title="Log Movement">
         <div style={{ display:'flex', flexDirection:'column', gap:13 }}>
-          <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-            <label style={{ fontSize:13, fontWeight:600, color:C.text }}>Activity Type</label>
-            <select value={ne.type} onChange={e=>setNe(p=>({...p,type:e.target.value}))} style={{ border:`1.5px solid ${C.border}`, borderRadius:9, padding:'11px 14px', fontSize:14, color:ne.type?C.text:C.muted, background:C.white }}>
-              <option value="">Select activity</option>
-              {['Walk','Run','Yoga','Strength Training','Cycling','Swimming','Dance','Other'].map(t=><option key={t}>{t}</option>)}
-            </select>
+          <div>
+            <label style={{ fontSize:13, fontWeight:600, color:C.text, display:'block', marginBottom:10 }}>Activity Type</label>
+            <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
+              {Object.entries(icons).map(([type,emoji])=>(
+                <div key={type} onClick={()=>setNe(p=>({...p,type}))}
+                  style={{ padding:'8px 13px', borderRadius:99, border:`1.5px solid ${ne.type===type?C.primary:C.border}`, background:ne.type===type?`${C.primary}10`:C.white, cursor:'pointer', fontSize:13, fontWeight:500, color:ne.type===type?C.primary:C.text, transition:'all .15s', display:'flex', alignItems:'center', gap:5 }}>
+                  <span>{emoji}</span><span>{type}</span>
+                </div>
+              ))}
+            </div>
           </div>
           <Input label="Duration (minutes)" type="number" placeholder="e.g. 30" value={ne.duration} onChange={e=>setNe(p=>({...p,duration:e.target.value}))}/>
-          <Btn full onClick={add}>Log It! 🏃‍♀️</Btn>
+          <div>
+            <label style={{ fontSize:13, fontWeight:600, color:C.text, display:'block', marginBottom:8 }}>Intensity</label>
+            <div style={{ display:'flex', gap:8 }}>
+              {[['Low','😌'],['Moderate','💪'],['High','🔥']].map(([level,emoji])=>(
+                <div key={level} onClick={()=>setNe(p=>({...p,intensity:level.toLowerCase()}))}
+                  style={{ flex:1, padding:'9px 0', borderRadius:10, border:`1.5px solid ${ne.intensity===level.toLowerCase()?C.primary:C.border}`, background:ne.intensity===level.toLowerCase()?`${C.primary}10`:C.white, textAlign:'center', cursor:'pointer', fontSize:12, fontWeight:600, color:ne.intensity===level.toLowerCase()?C.primary:C.muted, transition:'all .15s' }}>
+                  {emoji} {level}
+                </div>
+              ))}
+            </div>
+          </div>
+          <Btn full onClick={add} style={{ opacity:ne.type&&ne.duration?1:0.6 }}>Log It! 🏃‍♀️</Btn>
         </div>
       </Modal>
     </div>
   );
 }
-
 // ─── PREMIUM GATE ─────────────────────────────────────────────────────────────
 function PremiumGate({ feature, onUpgrade }) {
   return (
@@ -2599,7 +2849,7 @@ function TrackTab({ initView='overview', foodItems, setFoodItems, waterCups, set
   if(view==='food')     return <FoodLogger      onBack={()=>setView('overview')} items={foodItems}       setItems={setFoodItems}     calorieGoal={calorieGoal}/>;
   if(view==='water')    return <WaterTracker     onBack={()=>setView('overview')} cups={waterCups}        setCups={setWaterCups}      waterGoal={waterGoal}/>;
   if(view==='weight')   return <WeightLogger     onBack={()=>setView('overview')} entries={weightEntries} setEntries={setWeightEntries} weightUnit={weightUnit} appSettings={appSettings}/>;
-  if(view==='movement') return <MovementLogger   onBack={()=>setView('overview')} entries={moveItems}     setEntries={setMoveItems}/>;
+  if(view==='movement') return <MovementLogger   onBack={()=>setView('overview')} entries={moveItems}     setEntries={setMoveItems} weightEntries={weightEntries}/>;
   if(view==='meals')    return <div><div style={{display:'flex',alignItems:'center',gap:12,marginBottom:18}}><BackBtn onClick={()=>setView('overview')}/></div><MealPlanner user={user} onUpgrade={onUpgrade} setFoodItems={setFoodItems}/></div>;
   if(view==='programs') return <div><div style={{display:'flex',alignItems:'center',gap:12,marginBottom:18}}><BackBtn onClick={()=>setView('overview')}/></div><GuidedPrograms user={user} onUpgrade={onUpgrade}/></div>;
 
@@ -2690,7 +2940,7 @@ function PostCard({ post, currentUser, currentUserData, onLike, onPray, onDelete
           <div style={{ display:'flex', justifyContent:'space-between', marginBottom:3 }}>
             <span style={{ fontWeight:600, fontSize:14, color:C.text }}>{post.name}</span>
             <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-              <span style={{ fontSize:11, color:C.muted }}>{post.time}</span>
+              <span style={{ fontSize:11, color:C.muted }}>{formatRelativeTime(post.id)}</span>
               {isOwn && (
                 <button onClick={()=>onDelete(post.id)} style={{ background:'none', border:'none', cursor:'pointer', color:C.muted, padding:'0 2px', display:'flex', fontSize:12, lineHeight:1 }}>
                   <X size={13}/>
@@ -2758,16 +3008,13 @@ function PostCard({ post, currentUser, currentUserData, onLike, onPray, onDelete
   );
 }
 
-function CommunityTab({ user }) {
+function CommunityTab({ user, posts, setPosts }) {
   const [filter, setFilter] = useState('all');
   const [searchQ, setSearchQ] = useState('');
   const [create, setCreate] = useState(false);
   const [np, setNp] = useState({text:'',scripture:''});
-  const [posts, setPosts] = useState([]);
-  const [loading, setLoading] = useState(true);
   const isPremium = user?.plan === 'premium';
   const userName = user?.name || 'You';
-  const userEmail = user?.email || '';
 
   // ── Circles state (persisted) ──────────────────────────────
   const [myCircles, setMyCircles] = useState(() => {
@@ -2820,104 +3067,21 @@ function CommunityTab({ user }) {
     saveCircles(updated);
   };
 
-  // ── Supabase: load posts with likes, prayers, comments ──────
-  const loadPosts = async () => {
-    setLoading(true);
-    try {
-      const { data: rawPosts } = await supabase
-        .from('community_posts')
-        .select('*, post_comments(*), post_likes(*), post_prayers(*)')
-        .order('created_at', { ascending: false });
-      if (rawPosts) {
-        const shaped = rawPosts.map(p => ({
-          id: p.id,
-          name: p.user_name,
-          email: p.user_email,
-          avatarColor: p.avatar_color || C.primary,
-          initial: p.avatar_initial || p.user_name.charAt(0).toUpperCase(),
-          isCurrentUser: p.user_email === userEmail,
-          time: new Date(p.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}),
-          text: p.text,
-          scripture: p.scripture,
-          likes: p.post_likes.length,
-          liked: p.post_likes.some(l => l.user_email === userEmail),
-          praying: p.post_prayers.length,
-          prayed: p.post_prayers.some(r => r.user_email === userEmail),
-          commentsList: p.post_comments.map(c => ({
-            id: c.id,
-            name: c.user_name,
-            text: c.text,
-            time: new Date(c.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}),
-          })).sort((a,b) => a.id - b.id),
-        }));
-        setPosts(shaped);
-      }
-    } catch(e) { console.error('loadPosts error', e); }
-    setLoading(false);
-  };
-
-  useEffect(() => { loadPosts(); }, []);
-
-  // ── Supabase: submit post ────────────────────────────────────
-  const submitPost = async () => {
+  // ── Post state ──────────────────────────────────────────────
+  const toggleLike = id => setPosts(p => p.map(post => post.id===id ? {...post, likes:post.likes+(post.liked?-1:1), liked:!post.liked} : post));
+  const togglePray = id => setPosts(p => p.map(post => post.id===id ? {...post, praying:post.praying+(post.prayed?-1:1), prayed:!post.prayed} : post));
+  const deletePost = id => setPosts(p => p.filter(post => post.id !== id));
+  const submitPost = () => {
     if (!np.text.trim()) return;
-    await supabase.from('community_posts').insert({
-      user_name: userName,
-      user_email: userEmail,
-      avatar_color: user?.avatarColor || C.primary,
-      avatar_initial: userName.charAt(0).toUpperCase(),
-      text: np.text.trim(),
-      scripture: np.scripture.trim() || null,
-    });
+    setPosts(p => [{ id:Date.now(), name:userName, initial:userName.charAt(0).toUpperCase(), avatarColor:user?.avatarColor||C.primary, isCurrentUser:true, time:'Just now', text:np.text, scripture:np.scripture, likes:0, praying:0, liked:false, prayed:false, commentsList:[] }, ...p]);
     setNp({text:'', scripture:''}); setCreate(false);
-    loadPosts();
-  };
-
-  // ── Supabase: toggle like ────────────────────────────────────
-  const toggleLike = async (postId) => {
-    const post = posts.find(p => p.id === postId);
-    if (!post) return;
-    if (post.liked) {
-      await supabase.from('post_likes').delete().match({ post_id: postId, user_email: userEmail });
-    } else {
-      await supabase.from('post_likes').insert({ post_id: postId, user_email: userEmail });
-    }
-    setPosts(p => p.map(post => post.id===postId ? {...post, likes:post.likes+(post.liked?-1:1), liked:!post.liked} : post));
-  };
-
-  // ── Supabase: toggle prayer ──────────────────────────────────
-  const togglePray = async (postId) => {
-    const post = posts.find(p => p.id === postId);
-    if (!post) return;
-    if (post.prayed) {
-      await supabase.from('post_prayers').delete().match({ post_id: postId, user_email: userEmail });
-    } else {
-      await supabase.from('post_prayers').insert({ post_id: postId, user_email: userEmail });
-    }
-    setPosts(p => p.map(post => post.id===postId ? {...post, praying:post.praying+(post.prayed?-1:1), prayed:!post.prayed} : post));
-  };
-
-  // ── Supabase: delete post ────────────────────────────────────
-  const deletePost = async (postId) => {
-    await supabase.from('community_posts').delete().eq('id', postId);
-    setPosts(p => p.filter(post => post.id !== postId));
-  };
-
-  // ── Supabase: add comment ────────────────────────────────────
-  const addComment = async (postId, comment) => {
-    await supabase.from('post_comments').insert({
-      post_id: postId,
-      user_name: userName,
-      user_email: userEmail,
-      text: comment.text,
-    });
-    setPosts(p => p.map(post => post.id===postId ? {...post, commentsList:[...(post.commentsList||[]), comment]} : post));
   };
 
   const filtered = posts
-    .filter(p => filter === 'mine' ? p.email === userEmail : true)
+    .filter(p => filter === 'mine' ? p.name === userName : true)
     .filter(p => !searchQ || p.text.toLowerCase().includes(searchQ.toLowerCase()) || (p.name||'').toLowerCase().includes(searchQ.toLowerCase()));
 
+  // ── Filter labels ──────────────────────────────────────────
   const filters = [
     { id:'all',     label:'All Posts' },
     { id:'mine',    label:'My Posts' },
@@ -2932,6 +3096,7 @@ function CommunityTab({ user }) {
         {filter === 'circles' && isPremium && <Btn small onClick={()=>setShowCreateCircle(true)}><Plus size={13}/> New Circle</Btn>}
       </div>
 
+      {/* Search bar */}
       {filter !== 'circles' && (
         <div style={{ position:'relative', marginBottom:10 }}>
           <input value={searchQ} onChange={e=>setSearchQ(e.target.value)} placeholder="Search posts..."
@@ -2944,6 +3109,7 @@ function CommunityTab({ user }) {
         </div>
       )}
 
+      {/* Filter tabs */}
       <div style={{ display:'flex', gap:8, marginBottom:15, overflowX:'auto', paddingBottom:2 }}>
         {filters.map(f=>(
           <div key={f.id} onClick={()=>setFilter(f.id)} style={{ padding:'6px 15px', borderRadius:99, border:`1.5px solid ${filter===f.id?C.primary:C.border}`, background:filter===f.id?C.primary:C.white, color:filter===f.id?C.white:C.muted, fontSize:12, fontWeight:600, cursor:'pointer', whiteSpace:'nowrap', flexShrink:0, transition:'all 0.15s' }}>
@@ -2952,14 +3118,18 @@ function CommunityTab({ user }) {
         ))}
       </div>
 
+      {/* ── CIRCLES PANEL ── */}
       {filter === 'circles' && !isPremium && (
         <PremiumGate feature="Accountability Circles" onUpgrade={()=>{
+          const u = {...user, plan:'premium'};
+          // notify parent — handled via onUpgrade if wired, fallback alert
           alert('Upgrade to Premium to unlock Accountability Circles! Visit Profile → Subscription & Plan.');
         }}/>
       )}
 
       {filter === 'circles' && isPremium && (
         <div>
+          {/* Create circle modal */}
           <Modal open={showCreateCircle} onClose={()=>setShowCreateCircle(false)} title="Create a Circle">
             <div style={{ display:'flex', flexDirection:'column', gap:13 }}>
               <Input label="Circle Name" placeholder='e.g. "Morning Warriors" or "Temple Sisters"' value={newCircleName} onChange={e=>setNewCircleName(e.target.value)}/>
@@ -2976,13 +3146,14 @@ function CommunityTab({ user }) {
             <div style={{ textAlign:'center', padding:'40px 20px' }}>
               <div style={{ width:64, height:64, borderRadius:18, background:`linear-gradient(135deg,${C.primary}20,${C.accent}20)`, display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 16px', fontSize:28 }}>🤝</div>
               <div className="serif" style={{ fontSize:22, fontWeight:700, color:C.text, marginBottom:8 }}>No circles yet</div>
-              <div style={{ fontSize:13, color:C.muted, lineHeight:1.65, marginBottom:20, maxWidth:280, margin:'0 auto 20px' }}>Create a small group of 5-8 women for intimate accountability, prayer, and shared wellness goals.</div>
+              <div style={{ fontSize:13, color:C.muted, lineHeight:1.65, marginBottom:20, maxWidth:280, margin:'0 auto 20px' }}>Create a small group of 5–8 women for intimate accountability, prayer, and shared wellness goals.</div>
               <Btn onClick={()=>setShowCreateCircle(true)}><Plus size={14}/> Create Your First Circle</Btn>
             </div>
           ) : (
             <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
               {myCircles.map(circle => (
                 <Card key={circle.id} pad={0} style={{ overflow:'hidden' }}>
+                  {/* Circle header */}
                   <div onClick={()=>setOpenCircleId(openCircleId===circle.id?null:circle.id)}
                     style={{ display:'flex', alignItems:'center', gap:13, padding:'15px 17px', cursor:'pointer', background:`linear-gradient(135deg,${C.primary}08,${C.accent}06)` }}>
                     <div style={{ width:44, height:44, borderRadius:13, background:C.primary, display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, flexShrink:0 }}>🤝</div>
@@ -2992,27 +3163,36 @@ function CommunityTab({ user }) {
                     </div>
                     <div style={{ fontSize:16, color:C.muted, transition:'transform .2s', transform:openCircleId===circle.id?'rotate(90deg)':'none' }}>›</div>
                   </div>
+
+                  {/* Expanded circle content */}
                   {openCircleId === circle.id && (
                     <div style={{ padding:'0 17px 17px' }}>
+                      {/* Opening prayer */}
                       <div style={{ background:C.bgAlt, borderRadius:10, padding:'10px 13px', margin:'12px 0', borderLeft:`3px solid ${C.accent}` }}>
                         <div style={{ fontSize:10, fontWeight:700, color:C.accent, marginBottom:4, textTransform:'uppercase', letterSpacing:'.05em' }}>🙏 Circle Prayer</div>
                         <div style={{ fontSize:13, color:C.text, fontStyle:'italic', lineHeight:1.6 }}>"{circle.prayer}"</div>
                       </div>
+
+                      {/* Members */}
                       <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:12 }}>
                         {circle.members.map((m,i) => (
                           <div key={i} style={{ width:30, height:30, borderRadius:'50%', background:m.color||C.primary, display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, fontWeight:700, color:'#fff', border:`2px solid ${C.bg}`, marginLeft:i>0?-8:0 }}>
                             {m.initial}
                           </div>
                         ))}
-                        <div style={{ fontSize:12, color:C.muted, marginLeft:6 }}>{circle.members.map(m=>m.isYou?'You':m.name).join(', ')}</div>
+                        <div style={{ fontSize:12, color:C.muted, marginLeft:6 }}>
+                          {circle.members.map(m=>m.isYou?'You':m.name).join(', ')}
+                        </div>
                       </div>
+
+                      {/* Circle posts */}
                       {circle.posts.length > 0 && (
                         <div style={{ display:'flex', flexDirection:'column', gap:10, marginBottom:12 }}>
                           {circle.posts.map(post => (
                             <div key={post.id} style={{ background:C.bg, border:`1px solid ${C.border}`, borderRadius:11, padding:'11px 13px' }}>
                               <div style={{ display:'flex', justifyContent:'space-between', marginBottom:5 }}>
                                 <span style={{ fontSize:13, fontWeight:600, color:C.text }}>{post.author}</span>
-                                <span style={{ fontSize:11, color:C.muted }}>{post.time}</span>
+                                <span style={{ fontSize:11, color:C.muted }}>{formatRelativeTime(post.id)}</span>
                               </div>
                               <div style={{ fontSize:13, color:C.text, lineHeight:1.6, marginBottom:8 }}>{post.text}</div>
                               <button onClick={()=>toggleCirclePray(circle.id, post.id)}
@@ -3023,6 +3203,8 @@ function CommunityTab({ user }) {
                           ))}
                         </div>
                       )}
+
+                      {/* Post to circle */}
                       <div style={{ display:'flex', gap:8, alignItems:'center' }}>
                         <input value={circlePostText} onChange={e=>setCirclePostText(e.target.value)} onKeyDown={e=>e.key==='Enter'&&postToCircle(circle.id)}
                           placeholder="Share a prayer request or encouragement..." className="ff-input"
@@ -3041,14 +3223,10 @@ function CommunityTab({ user }) {
         </div>
       )}
 
+      {/* ── FEED PANEL ── */}
       {filter !== 'circles' && (
         <div style={{ display:'flex', flexDirection:'column', gap:13 }}>
-          {loading && (
-            <div style={{ textAlign:'center', padding:'40px 20px', color:C.muted }}>
-              <div style={{ fontSize:13 }}>Loading community posts...</div>
-            </div>
-          )}
-          {!loading && filtered.length === 0 && (
+          {filtered.length === 0 && (
             <div style={{ textAlign:'center', padding:'40px 20px', color:C.muted }}>
               <div style={{ fontSize:32, marginBottom:12 }}>🌿</div>
               <div style={{ fontWeight:600, fontSize:15, color:C.text, marginBottom:6 }}>
@@ -3060,8 +3238,8 @@ function CommunityTab({ user }) {
               <Btn small onClick={()=>setCreate(true)}><Plus size={13}/> Share Something</Btn>
             </div>
           )}
-          {!loading && filtered.map(post=>(
-            <PostCard key={post.id} post={post} currentUser={userName} currentUserData={user} onLike={toggleLike} onPray={togglePray} onDelete={deletePost} onComment={addComment}/>
+          {filtered.map(post=>(
+            <PostCard key={post.id} post={post} currentUser={userName} currentUserData={user} onLike={toggleLike} onPray={togglePray} onDelete={deletePost}/>
           ))}
         </div>
       )}
@@ -3074,7 +3252,8 @@ function CommunityTab({ user }) {
           <Btn full onClick={submitPost}><Send size={13}/> Post to Community</Btn>
         </div>
       </Modal>
-    </div>  );
+    </div>
+  );
 }
 
 
@@ -3410,18 +3589,17 @@ function ProfileTab({ user, onSignOut, onUpdateUser, appSettings, onUpdateSettin
 
       {/* Stats row */}
       {(() => {
-        const wk = getWeeklyStats();
+        const streak = calculateStreak();
         try {
           const journals = JSON.parse(localStorage.getItem('ff_journals') || '{}');
           const journalCount = Object.keys(journals).length;
           const weightHistory = JSON.parse(localStorage.getItem('ff_weight') || '[]');
-          const streak = wk.devs;
           return (
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10 }}>
               {[
-                { emoji:'🔥', val:streak, label:'Day Streak', color:C.accent },
-                { emoji:'✍️', val:journalCount, label:'Journal Entries', color:C.primary },
-                { emoji:'⚖️', val:weightHistory.length, label:'Weight Logs', color:'#3D6B33' },
+                { emoji:'🔥', val:streak, label:'Day Streak', color:streak>0?C.accent:'#ccc' },
+                { emoji:'✍️', val:journalCount, label:'Journal Entries', color:journalCount>0?C.primary:'#ccc' },
+                { emoji:'⚖️', val:weightHistory.length, label:'Weight Logs', color:weightHistory.length>0?'#3D6B33':'#ccc' },
               ].map(s => (
                 <div key={s.label} style={{ background:C.bgAlt, borderRadius:14, padding:'14px 10px', textAlign:'center' }}>
                   <div style={{ fontSize:22, marginBottom:4 }}>{s.emoji}</div>
@@ -3432,6 +3610,42 @@ function ProfileTab({ user, onSignOut, onUpdateUser, appSettings, onUpdateSettin
             </div>
           );
         } catch { return null; }
+      })()}
+
+      {/* 90-day activity calendar */}
+      {(() => {
+        const activityData = getActivityData();
+        const cells = [];
+        const today = new Date();
+        for (let i = 89; i >= 0; i--) {
+          const d = new Date(today);
+          d.setDate(today.getDate() - i);
+          const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+          const a = activityData[key];
+          cells.push({ key, active: !!a?.devotion, today: i===0 });
+        }
+        const totalActive = cells.filter(c=>c.active).length;
+        return (
+          <Card>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
+              <div style={{ fontWeight:700, fontSize:14, color:C.text }}>90-Day Activity</div>
+              <div style={{ fontSize:12, color:C.primary, fontWeight:600 }}>{totalActive} days active</div>
+            </div>
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(13, 1fr)', gap:3 }}>
+              {cells.map(cell => (
+                <div key={cell.key} style={{ aspectRatio:'1', borderRadius:3, background: cell.today ? C.accent : cell.active ? C.primary : `${C.primary}18`, border: cell.today ? `1.5px solid ${C.accent}` : 'none', transition:'background .3s' }}/>
+              ))}
+            </div>
+            <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:10, justifyContent:'flex-end' }}>
+              <div style={{ width:10, height:10, borderRadius:2, background:`${C.primary}18` }}/>
+              <span style={{ fontSize:10, color:C.muted }}>No activity</span>
+              <div style={{ width:10, height:10, borderRadius:2, background:C.primary, marginLeft:6 }}/>
+              <span style={{ fontSize:10, color:C.muted }}>Active day</span>
+              <div style={{ width:10, height:10, borderRadius:2, background:C.accent, marginLeft:6 }}/>
+              <span style={{ fontSize:10, color:C.muted }}>Today</span>
+            </div>
+          </Card>
+        );
       })()}
 
       {/* Goals summary */}
@@ -3655,6 +3869,18 @@ function MainApp({ user: initialUser, onSignOut }) {
             ))}
           </div>
           <div style={{ borderTop:`1px solid ${C.border}`, paddingTop:14 }}>
+            {/* User mini card */}
+            <div onClick={()=>navigate('profile')} className="nav-item" style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 13px', cursor:'pointer', borderRadius:10, marginBottom:6 }}>
+              <div style={{ width:32, height:32, borderRadius:'50%', background:user?.avatarColor||C.primary, flexShrink:0, overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, fontWeight:700, color:'#fff' }}>
+                {user?.avatarPhoto
+                  ? <img src={user.avatarPhoto} alt="avatar" style={{ width:'100%', height:'100%', objectFit:'cover' }}/>
+                  : (user?.name||'Y').charAt(0).toUpperCase()}
+              </div>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontSize:13, fontWeight:600, color:C.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{user?.name||'My Account'}</div>
+                <div style={{ fontSize:10, color:C.muted }}>{user?.plan==='premium'?'✨ Premium':'Free Plan'}</div>
+              </div>
+            </div>
             <div onClick={onSignOut} className="nav-item" style={{ display:'flex', alignItems:'center', gap:11, padding:'10px 13px', color:'#B91C1C', cursor:'pointer', borderRadius:10 }}>
               <LogOut size={16}/><span style={{ fontSize:13 }}>Sign Out</span>
             </div>
@@ -3701,7 +3927,7 @@ function MainApp({ user: initialUser, onSignOut }) {
                 user={user} onUpgrade={handleUpgrade}
               />
             )}
-            {tab==='community' && <CommunityTab user={user}/>}
+            {tab==='community' && <CommunityTab user={user} posts={posts} setPosts={setPostsAndSave}/>}
             {tab==='sage' && <SageTab user={user}/>}
             {tab==='profile' && <ProfileTab user={user} onSignOut={onSignOut} onUpdateUser={handleUpdateUser} appSettings={appSettings} onUpdateSettings={handleUpdateSettings}/>}
           </div>
@@ -3751,6 +3977,184 @@ const LP = {
     .lp-reveal-d1 { animation-delay: .1s; }
     .lp-reveal-d2 { animation-delay: .2s; }
     .lp-reveal-d3 { animation-delay: .3s; }
+
+    /* ══════════════════════════════════════════════════
+       MOBILE — screens under 768px
+       Fixes: hero text, testimonials, feature cards,
+              stats bar 2×2, section spacing
+    ══════════════════════════════════════════════════ */
+    @media (max-width: 768px) {
+
+      /* ── 1. Hero text — 36px+ h1 on mobile ── */
+      .lp-hero-h1 {
+        font-size: 40px !important;
+        line-height: 1.08 !important;
+        letter-spacing: -0.5px !important;
+      }
+      .lp-hero-sub {
+        font-size: 16px !important;
+        line-height: 1.7 !important;
+        max-width: 100% !important;
+      }
+      .lp-section-h2 {
+        font-size: 30px !important;
+        line-height: 1.15 !important;
+        margin-bottom: 28px !important;
+      }
+
+      /* Hero layout — single column, centered */
+      .lp-hero-grid {
+        grid-template-columns: 1fr !important;
+        gap: 32px !important;
+        text-align: center !important;
+        padding: 0 20px !important;
+      }
+      .lp-hero-grid > div:last-child { display: none !important; }
+      .lp-hero-actions {
+        flex-direction: column !important;
+        gap: 12px !important;
+        align-items: stretch !important;
+      }
+      .lp-hero-actions > * {
+        width: 100% !important;
+        text-align: center !important;
+        justify-content: center !important;
+      }
+      .lp-hero-section {
+        padding: 60px 0 50px !important;
+      }
+
+      /* ── 2. Testimonials — single column, readable ── */
+      .lp-testimonials-grid {
+        grid-template-columns: 1fr !important;
+        gap: 18px !important;
+        padding: 0 4px !important;
+      }
+      .lp-test-card {
+        padding: 26px 22px !important;
+        border-radius: 18px !important;
+      }
+      .lp-test-quote {
+        font-size: 15px !important;
+        line-height: 1.72 !important;
+        margin-bottom: 18px !important;
+      }
+      .lp-test-card img {
+        width: 48px !important;
+        height: 48px !important;
+      }
+
+      /* ── 3. Feature cards — 24px padding, 2-col then 1-col ── */
+      .lp-features-grid {
+        grid-template-columns: 1fr 1fr !important;
+        gap: 14px !important;
+        padding: 0 4px !important;
+      }
+      .lp-feat-card {
+        padding: 24px !important;
+        border-radius: 16px !important;
+      }
+      .lp-feat-card h3 {
+        font-size: 15px !important;
+      }
+      .lp-feat-card p {
+        font-size: 13px !important;
+        line-height: 1.6 !important;
+      }
+
+      /* ── 4. Stats bar — 2×2 grid ── */
+      .lp-stats-section {
+        padding: 32px 0 !important;
+      }
+      .lp-stats-grid {
+        grid-template-columns: 1fr 1fr !important;
+        gap: 28px 16px !important;
+        padding: 0 20px !important;
+        max-width: 100% !important;
+      }
+      .lp-stats-grid > div {
+        text-align: center !important;
+      }
+      .lp-stats-grid > div > div:first-child {
+        font-size: 32px !important;
+      }
+
+      /* ── 5. All sections — 40px top/bottom, 20px sides ── */
+      .lp-section {
+        padding: 40px 20px !important;
+      }
+      .lp-faq-section {
+        padding: 40px 20px !important;
+      }
+
+      /* Pricing — single column */
+      .lp-pricing-grid {
+        grid-template-columns: 1fr !important;
+        gap: 16px !important;
+        max-width: 100% !important;
+        padding: 0 4px !important;
+      }
+
+      /* Footer — 2-col */
+      .lp-footer-grid {
+        grid-template-columns: 1fr 1fr !important;
+        gap: 28px 20px !important;
+      }
+
+      /* Nav — hide desktop links */
+      .lp-nav-links { display: none !important; }
+
+      /* Trust row */
+      .lp-trust-row {
+        justify-content: center !important;
+        flex-wrap: wrap !important;
+        gap: 10px !important;
+      }
+
+      /* Scripture break */
+      .lp-scripture-text {
+        font-size: 22px !important;
+        line-height: 1.55 !important;
+        padding: 0 4px !important;
+      }
+
+      /* App dashboard grids */
+      .programs-grid { grid-template-columns: 1fr !important; }
+      .metrics-grid  { grid-template-columns: 1fr 1fr !important; }
+      .main-grid     { grid-template-columns: 1fr !important; }
+    }
+
+    /* ── Extra small — under 480px ─────────────────────── */
+    @media (max-width: 480px) {
+      .lp-hero-h1    { font-size: 36px !important; line-height: 1.1 !important; }
+      .lp-section-h2 { font-size: 26px !important; }
+      .lp-hero-sub   { font-size: 15px !important; }
+
+      /* Feature cards: 1-col on very small screens */
+      .lp-features-grid {
+        grid-template-columns: 1fr !important;
+      }
+      .lp-feat-card  { padding: 22px 18px !important; }
+
+      /* Stats still 2×2 */
+      .lp-stats-grid {
+        grid-template-columns: 1fr 1fr !important;
+        gap: 16px 12px !important;
+        padding: 0 16px !important;
+      }
+
+      /* Footer: single column on very small */
+      .lp-footer-grid { grid-template-columns: 1fr !important; gap: 24px !important; }
+
+      /* Testimonial cards: reduce padding slightly */
+      .lp-test-card  { padding: 20px 18px !important; }
+      .lp-test-quote { font-size: 14px !important; }
+
+      /* Section spacing tighter on tiny screens */
+      .lp-section        { padding: 36px 16px !important; }
+      .lp-hero-section   { padding: 48px 0 40px !important; }
+      .lp-hero-grid      { padding: 0 16px !important; }
+    }
   `,
 };
 
@@ -3850,7 +4254,7 @@ function LandingPage({ onSignup, onSignIn }) {
             </div>
             <span style={{ ...S.serif, fontSize:18, fontWeight:700, color:C.text }}>Flourish & Faith</span>
           </div>
-          <div style={{ display:'flex', gap:12 }}>
+          <div className="lp-nav-links" style={{ display:'flex', gap:12 }}>
             <button className="lp-btn-outline" onClick={onSignIn} style={{ padding:'9px 18px', border:`1.5px solid ${C.primary}`, borderRadius:10, background:'transparent', color:C.primary, fontSize:14, fontWeight:600, cursor:'pointer' }}>Sign In</button>
             <button className="lp-btn-hero" onClick={onSignup} style={{ padding:'10px 20px', background:C.primary, border:'none', borderRadius:10, color:'#fff', fontSize:14, fontWeight:600, cursor:'pointer', boxShadow:'0 4px 16px rgba(90,123,79,.3)' }}>Start Free ✨</button>
           </div>
@@ -3858,25 +4262,25 @@ function LandingPage({ onSignup, onSignIn }) {
       </nav>
 
       {/* ── HERO ── */}
-      <section style={{ background:`linear-gradient(145deg, ${C.bgAlt} 0%, ${C.bg} 55%, #EDF4E9 100%)`, padding:'80px 0 100px', position:'relative', overflow:'hidden' }}>
+      <section className="lp-hero-section" style={{ background:`linear-gradient(145deg, ${C.bgAlt} 0%, ${C.bg} 55%, #EDF4E9 100%)`, padding:'80px 0 100px', position:'relative', overflow:'hidden' }}>
         {/* Decorative circles */}
         <div style={{ position:'absolute', top:-120, right:-120, width:600, height:600, borderRadius:'50%', background:'radial-gradient(circle, rgba(90,123,79,.1) 0%, transparent 70%)', pointerEvents:'none' }}/>
         <div style={{ position:'absolute', bottom:-80, left:-80, width:400, height:400, borderRadius:'50%', background:'radial-gradient(circle, rgba(201,169,97,.1) 0%, transparent 70%)', pointerEvents:'none' }}/>
 
-        <div style={{ ...S.container, display:'grid', gridTemplateColumns:'1fr 1fr', gap:60, alignItems:'center', position:'relative' }}>
+        <div className="lp-hero-grid" style={{ ...S.container, display:'grid', gridTemplateColumns:'1fr 1fr', gap:60, alignItems:'center', position:'relative' }}>
           {/* Left */}
           <div>
             <div className="lp-reveal" style={{ display:'inline-flex', alignItems:'center', gap:7, background:C.bgAlt, border:`1px solid ${C.border}`, borderRadius:99, padding:'6px 16px', fontSize:12, fontWeight:500, color:C.muted, letterSpacing:'.04em', textTransform:'uppercase', marginBottom:22 }}>
               <span style={{ width:6, height:6, borderRadius:'50%', background:'#7FA876', display:'inline-block' }}/>
               Faith-Integrated Wellness · For Christian Women
             </div>
-            <h1 className="lp-reveal lp-reveal-d1" style={{ ...S.serif, fontSize:'clamp(48px, 5.5vw, 80px)', fontWeight:700, lineHeight:1.0, color:C.text, letterSpacing:'-1px', marginBottom:20 }}>
+            <h1 className="lp-reveal lp-reveal-d1 lp-hero-h1" style={{ ...S.serif, fontSize:'clamp(48px, 5.5vw, 80px)', fontWeight:700, lineHeight:1.0, color:C.text, letterSpacing:'-1px', marginBottom:20 }}>
               Honor your body.<br/><em style={{ fontStyle:'italic', color:C.primary }}>Deepen</em> your faith.
             </h1>
-            <p className="lp-reveal lp-reveal-d2" style={{ fontSize:17, color:C.muted, lineHeight:1.72, marginBottom:28, maxWidth:480 }}>
+            <p className="lp-reveal lp-reveal-d2 lp-hero-sub" style={{ fontSize:17, color:C.muted, lineHeight:1.72, marginBottom:28, maxWidth:480 }}>
               Daily devotionals, grace-centered tracking, and a community of women who understand that caring for your body is an act of worship.
             </p>
-            <div className="lp-reveal lp-reveal-d3" style={{ display:'flex', flexWrap:'wrap', gap:12, marginBottom:28 }}>
+            <div className="lp-reveal lp-reveal-d3 lp-hero-actions" style={{ display:'flex', flexWrap:'wrap', gap:12, marginBottom:28 }}>
               <button className="lp-btn-hero" onClick={onSignup} style={{ display:'inline-flex', alignItems:'center', gap:8, padding:'16px 30px', background:C.primary, border:'none', borderRadius:12, color:'#fff', fontSize:16, fontWeight:600, cursor:'pointer', boxShadow:'0 6px 24px rgba(90,123,79,.3)' }}>
                 Start Free Today ✨
               </button>
@@ -3885,7 +4289,7 @@ function LandingPage({ onSignup, onSignIn }) {
               </button>
             </div>
             {/* Trust row */}
-            <div className="lp-reveal" style={{ display:'flex', alignItems:'center', gap:12 }}>
+            <div className="lp-reveal lp-trust-row" style={{ display:'flex', alignItems:'center', gap:12 }}>
               <div style={{ display:'flex' }}>
                 {[['#7B4F2E','#C47A4A'],['#9B6040','#D4915A'],['#5C3317','#A0622A'],['#B07440','#E0A870']].map(([f,s],i)=>(
                   <TrustAvatar key={i} fill={f} skin={s}/>
@@ -3942,8 +4346,8 @@ function LandingPage({ onSignup, onSignIn }) {
       </section>
 
       {/* ── STATS ── */}
-      <div style={{ background:C.primary, padding:'26px 0' }}>
-        <div style={{ ...S.container, display:'flex', justifyContent:'space-around', alignItems:'center', flexWrap:'wrap', gap:20 }}>
+      <div className="lp-stats-section" style={{ background:C.primary, padding:'26px 0' }}>
+        <div className="lp-stats-grid" style={{ maxWidth:1100, margin:'0 auto', padding:'0 24px', display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:20, alignItems:'center' }}>
           {[['50K+','Women Flourishing'],['365','Daily Devotionals'],['4.9','Average Rating'],['60%','Daily Completion']].map(([n,l],i)=>(
             <div key={l} style={{ textAlign:'center' }}>
               <div style={{ ...S.serif, fontSize:38, fontWeight:700, color:'#fff', lineHeight:1, display:'flex', alignItems:'center', gap:5, justifyContent:'center' }}>
@@ -3956,18 +4360,18 @@ function LandingPage({ onSignup, onSignIn }) {
       </div>
 
       {/* ── FEATURES ── */}
-      <section id="features" style={{ background:C.bgAlt, padding:'90px 0' }}>
+      <section id="features" className="lp-section" style={{ background:C.bgAlt, padding:'90px 0' }}>
         <div style={S.container}>
           <div style={{ fontSize:11, fontWeight:500, color:C.muted, letterSpacing:'.04em', textTransform:'uppercase', marginBottom:14, display:'inline-flex', alignItems:'center', gap:7, background:C.bg, border:`1px solid ${C.border}`, borderRadius:99, padding:'5px 15px' }}>
             <span style={{ width:6, height:6, borderRadius:'50%', background:'#7FA876', display:'inline-block' }}/>Everything You Need
           </div>
-          <h2 style={{ ...S.serif, fontSize:'clamp(32px,4vw,52px)', fontWeight:700, lineHeight:1.1, color:C.text, marginBottom:14 }}>
+          <h2 className="lp-section-h2" style={{ ...S.serif, fontSize:'clamp(32px,4vw,52px)', fontWeight:700, lineHeight:1.1, color:C.text, marginBottom:14 }}>
             Wellness designed for the <em style={{ fontStyle:'italic', color:C.primary }}>whole</em> woman
           </h2>
           <p style={{ fontSize:16, color:C.muted, lineHeight:1.7, maxWidth:540, marginBottom:50 }}>
             Faith, nutrition, movement, and community — woven together the way God intended.
           </p>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:18 }}>
+          <div className="lp-features-grid" style={{ display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:18 }}>
             {LP_FEATURES.map(f=>(
               <div key={f.title} className="lp-feat-card" style={{ background:C.bg, borderRadius:20, padding:26, boxShadow:'0 2px 16px rgba(44,62,42,.06)', border:'1px solid transparent' }}>
                 <div style={{ width:50, height:50, borderRadius:14, background:f.bg, display:'flex', alignItems:'center', justifyContent:'center', marginBottom:16 }}>{FEAT_ICONS[f.icon]}</div>
@@ -3985,19 +4389,19 @@ function LandingPage({ onSignup, onSignIn }) {
       </section>
 
       {/* ── TESTIMONIALS ── */}
-      <section id="testimonials" style={{ background:C.text, padding:'90px 0' }}>
+      <section id="testimonials" className="lp-section" style={{ background:C.text, padding:'90px 0' }}>
         <div style={S.container}>
           <div style={{ fontSize:11, fontWeight:500, color:'rgba(255,255,255,.6)', letterSpacing:'.04em', textTransform:'uppercase', marginBottom:14, display:'inline-flex', alignItems:'center', gap:7, background:'rgba(255,255,255,.08)', border:'1px solid rgba(255,255,255,.15)', borderRadius:99, padding:'5px 15px' }}>
             <span style={{ width:6, height:6, borderRadius:'50%', background:C.accent, display:'inline-block' }}/>Real Women, Real Transformation
           </div>
-          <h2 style={{ ...S.serif, fontSize:'clamp(32px,4vw,52px)', fontWeight:700, lineHeight:1.1, color:'#fff', marginBottom:48 }}>
+          <h2 className="lp-section-h2" style={{ ...S.serif, fontSize:'clamp(32px,4vw,52px)', fontWeight:700, lineHeight:1.1, color:'#fff', marginBottom:48 }}>
             What our sisters are <em style={{ fontStyle:'italic', color:C.accent }}>saying</em>
           </h2>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:20 }}>
+          <div className="lp-testimonials-grid" style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:20 }}>
             {LP_TESTIMONIALS.map(t=>(
               <div key={t.name} className="lp-test-card" style={{ background:'rgba(255,255,255,.05)', border:'1px solid rgba(255,255,255,.1)', borderRadius:20, padding:28 }}>
                 <div style={{ display:'flex', gap:3, marginBottom:14 }}>{[0,0,0,0,0].map((_,i)=><Star5 key={i}/>)}</div>
-                <div style={{ ...S.serif, fontSize:19, fontStyle:'italic', color:'rgba(255,255,255,.9)', lineHeight:1.65, marginBottom:20 }}>
+                <div className="lp-test-quote" style={{ ...S.serif, fontSize:19, fontStyle:'italic', color:'rgba(255,255,255,.9)', lineHeight:1.65, marginBottom:20 }}>
                   <span style={{ color:C.accent, fontSize:28, lineHeight:.8, display:'block', marginBottom:4 }}>"</span>
                   {t.quote}
                 </div>
@@ -4025,7 +4429,7 @@ function LandingPage({ onSignup, onSignIn }) {
         <div style={{ position:'absolute', top:-40, left:40, ...S.serif, fontSize:300, color:'rgba(255,255,255,.05)', lineHeight:1, pointerEvents:'none' }}>"</div>
         <div style={S.container}>
           <div style={{ fontSize:12, color:'rgba(255,255,255,.6)', textTransform:'uppercase', letterSpacing:'.1em', marginBottom:16 }}>3 John 1:2</div>
-          <div style={{ ...S.serif, fontSize:'clamp(24px,3.5vw,46px)', fontStyle:'italic', color:'#fff', lineHeight:1.5, maxWidth:840, margin:'0 auto 18px' }}>
+          <div className="lp-scripture-text" style={{ ...S.serif, fontSize:'clamp(24px,3.5vw,46px)', fontStyle:'italic', color:'#fff', lineHeight:1.5, maxWidth:840, margin:'0 auto 18px' }}>
             "Beloved, I pray that all may go well with you and that you may be in good health, as it goes well with your soul."
           </div>
           <div style={{ fontSize:14, color:'rgba(255,255,255,.65)' }}>God cares about your whole health — body, soul, and spirit.</div>
@@ -4033,15 +4437,15 @@ function LandingPage({ onSignup, onSignIn }) {
       </div>
 
       {/* ── PRICING ── */}
-      <section id="pricing" style={{ background:C.bgAlt, padding:'90px 0' }}>
+      <section id="pricing" className="lp-section" style={{ background:C.bgAlt, padding:'90px 0' }}>
         <div style={{ ...S.container, textAlign:'center' }}>
           <div style={{ fontSize:11, fontWeight:500, color:C.muted, letterSpacing:'.04em', textTransform:'uppercase', marginBottom:14, display:'inline-flex', alignItems:'center', gap:7, background:C.bg, border:`1px solid ${C.border}`, borderRadius:99, padding:'5px 15px' }}>
             <span style={{ width:6, height:6, borderRadius:'50%', background:'#7FA876', display:'inline-block' }}/>Simple Pricing
           </div>
-          <h2 style={{ ...S.serif, fontSize:'clamp(32px,4vw,52px)', fontWeight:700, lineHeight:1.1, color:C.text, marginBottom:50 }}>
+          <h2 className="lp-section-h2" style={{ ...S.serif, fontSize:'clamp(32px,4vw,52px)', fontWeight:700, lineHeight:1.1, color:C.text, marginBottom:50 }}>
             Start free. <em style={{ fontStyle:'italic', color:C.primary }}>Flourish</em> further.
           </h2>
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:24, maxWidth:760, margin:'0 auto' }}>
+          <div className="lp-pricing-grid" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:24, maxWidth:760, margin:'0 auto' }}>
             {/* Free */}
             <div className="lp-price-card" style={{ background:C.bg, borderRadius:22, padding:32, border:`2px solid ${C.border}` }}>
               <div style={{ ...S.serif, fontSize:26, fontWeight:700, color:C.text, marginBottom:4 }}>Free</div>
@@ -4079,7 +4483,7 @@ function LandingPage({ onSignup, onSignIn }) {
       </section>
 
       {/* ── FAQ ── */}
-      <section id="faq" style={{ background:C.bg, padding:'90px 0' }}>
+      <section id="faq" className="lp-section lp-faq-section" style={{ background:C.bg, padding:'90px 0' }}>
         <div style={S.container}>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1.1fr', gap:80, alignItems:'start' }}>
             {/* Left */}
@@ -4152,7 +4556,7 @@ function LandingPage({ onSignup, onSignIn }) {
       {/* ── FOOTER ── */}
       <footer style={{ background:'#0f1a0d', padding:'50px 0 28px' }}>
         <div style={S.container}>
-          <div style={{ display:'grid', gridTemplateColumns:'2fr 1fr 1fr 1fr', gap:44, marginBottom:40 }}>
+          <div className="lp-footer-grid" style={{ display:'grid', gridTemplateColumns:'2fr 1fr 1fr 1fr', gap:44, marginBottom:40 }}>
             <div>
               <div style={{ display:'flex', alignItems:'center', gap:9, marginBottom:10 }}>
                 <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#7FA876" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg>
@@ -4305,38 +4709,9 @@ export default function FlourishAndFaith() {
   };
 
   // Clear all user-specific localStorage keys
-  // Keys that belong to a specific user's tracking data
-  const USER_DATA_KEYS = ['ff_daily','ff_posts','ff_weight','ff_circles','ff_programs',
-    'ff_goals','ff_settings','ff_notifs','ff_week','ff_sage_daily',
-    'ff_journals','ff_recipe_favs'];
-
-  // Save all tracking data under a user-specific key
-  const saveUserData = (email) => {
-    if (!email) return;
-    const snapshot = {};
-    USER_DATA_KEYS.forEach(k => {
-      try { const v = localStorage.getItem(k); if (v !== null) snapshot[k] = v; } catch(e) {}
-    });
-    try { localStorage.setItem(`ff_data_${email}`, JSON.stringify(snapshot)); } catch(e) {}
-  };
-
-  // Restore a user's tracking data from their snapshot
-  const restoreUserData = (email) => {
-    if (!email) return;
-    try {
-      const snapshot = JSON.parse(localStorage.getItem(`ff_data_${email}`) || '{}');
-      USER_DATA_KEYS.forEach(k => {
-        try {
-          if (snapshot[k] !== undefined) localStorage.setItem(k, snapshot[k]);
-          else localStorage.removeItem(k);
-        } catch(e) {}
-      });
-    } catch(e) {}
-  };
-
-  // Wipe all shared tracking keys (used for brand new sign-ups)
   const clearAllUserData = () => {
-    ['ff_user', ...USER_DATA_KEYS].forEach(k => {
+    ['ff_user','ff_daily','ff_posts','ff_weight','ff_circles','ff_programs',
+     'ff_goals','ff_settings','ff_notifs','ff_week','ff_sage_daily','ff_journals'].forEach(k => {
       try { localStorage.removeItem(k); } catch(e) {}
     });
   };
@@ -4344,8 +4719,7 @@ export default function FlourishAndFaith() {
   const handleAuth=(data)=>{
     const savedProfile = loadUserProfile();
     if (data.isLogin && savedProfile) {
-      // Returning user — restore their tracking data then load profile
-      restoreUserData(savedProfile.email);
+      // Returning user — restore full profile and skip onboarding
       const merged = { ...savedProfile, plan: savedProfile.plan || 'free' };
       setUser(merged);
       setScreen('app');
@@ -4354,17 +4728,15 @@ export default function FlourishAndFaith() {
       clearAllUserData();
       const newUser = {...data, plan:'free', covenant:''};
       setUser(newUser);
-      saveUserProfile(newUser);
+      saveUserProfile(newUser);  // save immediately so Sign In can find them
       setScreen('goals');
     }
   };
 
   const handleSignOut = () => {
-    // Save this user's tracking data keyed by email, then clear shared keys
-    if (user?.email) saveUserData(user.email);
-    USER_DATA_KEYS.forEach(k => {
-      try { localStorage.removeItem(k); } catch(e) {}
-    });
+    // Only clear the Sage daily counter on sign-out; keep all tracking data
+    // so the user sees it when they sign back in
+    try { localStorage.removeItem('ff_sage_daily'); } catch(e) {}
     setUser(null);
     setScreen('landing');
   };

@@ -1,5 +1,22 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
-  <rect width="192" height="192" rx="40" fill="#5A7B4F"/>
-  <path d="M96 140C72 140 52 120 52 96c0-28 20-52 44-60-2 8-3 16-3 24 0 32 20 52 44 52-8 12-22 28-41 28z" fill="white" opacity="0.9"/>
-  <path d="M110 52c8 12 14 28 14 44 0 16-6 30-14 40 20-8 34-26 34-44 0-20-14-36-34-40z" fill="white" opacity="0.7"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background -->
+  <rect width="512" height="512" rx="112" fill="#5A7B4F"/>
+  <!-- Leaf / flourish mark -->
+  <path d="M256 80 C256 80 140 180 140 290 C140 360 190 420 256 420 C322 420 372 360 372 290 C372 180 256 80 256 80 Z"
+        fill="rgba(255,255,255,0.12)"/>
+  <!-- Main leaf -->
+  <path d="M256 110 C200 170 168 230 168 290 C168 345 206 392 256 400 C306 392 344 345 344 290 C344 230 312 170 256 110 Z"
+        fill="rgba(255,255,255,0.18)"/>
+  <!-- Center vein -->
+  <line x1="256" y1="130" x2="256" y2="390" stroke="rgba(255,255,255,0.35)" stroke-width="6" stroke-linecap="round"/>
+  <!-- Left veins -->
+  <line x1="256" y1="210" x2="198" y2="248" stroke="rgba(255,255,255,0.25)" stroke-width="4" stroke-linecap="round"/>
+  <line x1="256" y1="268" x2="188" y2="298" stroke="rgba(255,255,255,0.25)" stroke-width="4" stroke-linecap="round"/>
+  <line x1="256" y1="326" x2="204" y2="348" stroke="rgba(255,255,255,0.25)" stroke-width="4" stroke-linecap="round"/>
+  <!-- Right veins -->
+  <line x1="256" y1="210" x2="314" y2="248" stroke="rgba(255,255,255,0.25)" stroke-width="4" stroke-linecap="round"/>
+  <line x1="256" y1="268" x2="324" y2="298" stroke="rgba(255,255,255,0.25)" stroke-width="4" stroke-linecap="round"/>
+  <line x1="256" y1="326" x2="308" y2="348" stroke="rgba(255,255,255,0.25)" stroke-width="4" stroke-linecap="round"/>
+  <!-- Gold accent dot at top -->
+  <circle cx="256" cy="110" r="12" fill="#C9A961"/>
 </svg>
