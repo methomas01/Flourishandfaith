@@ -1034,7 +1034,7 @@ function HomeTab({ user, onNavigate, foodItems, waterCups, weightEntries, moveIt
             <div>
               <div style={{ fontSize:13, color:C.muted }}>{today}</div>
               <div className="serif" style={{ fontSize:26, fontWeight:800, color:C.text, lineHeight:1.15 }}>
-                Good {greeting}, {user?.name||'friend'} 🌿
+                Good {greeting}, {(user?.name||'').split(' ')[0] || user?.email?.split('@')[0] || 'there'} 🌿
               </div>
             </div>
             {streak > 0 && (
@@ -4792,19 +4792,36 @@ export default function FlourishAndFaith() {
     });
   };
 
-  const handleAuth=(data)=>{
-    const savedProfile = loadUserProfile();
-    if (data.isLogin && savedProfile) {
-      // Returning user — restore full profile and skip onboarding
-      const merged = { ...savedProfile, plan: savedProfile.plan || 'free' };
-      setUser(merged);
-      setScreen('app');
+  const handleAuth = (data) => {
+    if (data.isLogin) {
+      // ── SIGN IN ──
+      // Try to find the saved profile by email
+      const savedProfile = loadUserProfile();
+      if (savedProfile && savedProfile.email === data.email) {
+        // Perfect match — restore full profile, all data stays intact
+        const merged = { ...savedProfile, plan: savedProfile.plan || 'free' };
+        setUser(merged);
+        setScreen('app');
+      } else if (savedProfile && !savedProfile.email) {
+        // Old profile with no email saved — still restore it
+        const merged = { ...savedProfile, email: data.email, plan: savedProfile.plan || 'free' };
+        setUser(merged);
+        saveUserProfile(merged);
+        setScreen('app');
+      } else {
+        // No matching profile found — sign them in with what we have
+        // Do NOT wipe data, do NOT call clearAllUserData
+        const fallback = savedProfile || { name: data.email.split('@')[0], email: data.email, plan: 'free', covenant: '' };
+        setUser(fallback);
+        saveUserProfile(fallback);
+        setScreen('app');
+      }
     } else {
-      // New user — clear any previous user's data first, then start fresh
+      // ── SIGN UP ── New user — clear previous user's data, start fresh
       clearAllUserData();
-      const newUser = {...data, plan:'free', covenant:''};
+      const newUser = { name: data.name || 'Friend', email: data.email, plan: 'free', covenant: '' };
       setUser(newUser);
-      saveUserProfile(newUser);  // save immediately so Sign In can find them
+      saveUserProfile(newUser);
       setScreen('goals');
     }
   };
