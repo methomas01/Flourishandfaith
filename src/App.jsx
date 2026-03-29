@@ -1,4 +1,9 @@
 import React, { useState, useEffect } from "react";
+import { createClient } from '@supabase/supabase-js';
+
+const SUPABASE_URL = 'https://uftunwcxpthsxodxeczu.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVmdHVud2N4cHRoc3hvZHhlY3p1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1Nzc5MTMsImV4cCI6MjA5MDE1MzkxM30.niKecNM1O4qNi6m1Jap1LHFV3yhyomq9z_O9x30Qqew';
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 import {
   Home, BarChart2, Users, User, Settings, BookOpen, Droplets, ArrowLeft,
   Plus, ChevronRight, Check, X, Eye, EyeOff, CheckCircle, Bell, Award,
@@ -2753,13 +2758,16 @@ function PostCard({ post, currentUser, currentUserData, onLike, onPray, onDelete
   );
 }
 
-function CommunityTab({ user, posts, setPosts }) {
+function CommunityTab({ user }) {
   const [filter, setFilter] = useState('all');
   const [searchQ, setSearchQ] = useState('');
   const [create, setCreate] = useState(false);
   const [np, setNp] = useState({text:'',scripture:''});
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
   const isPremium = user?.plan === 'premium';
   const userName = user?.name || 'You';
+  const userEmail = user?.email || '';
 
   // ── Circles state (persisted) ──────────────────────────────
   const [myCircles, setMyCircles] = useState(() => {
@@ -2812,21 +2820,104 @@ function CommunityTab({ user, posts, setPosts }) {
     saveCircles(updated);
   };
 
-  // ── Post state ──────────────────────────────────────────────
-  const toggleLike = id => setPosts(p => p.map(post => post.id===id ? {...post, likes:post.likes+(post.liked?-1:1), liked:!post.liked} : post));
-  const togglePray = id => setPosts(p => p.map(post => post.id===id ? {...post, praying:post.praying+(post.prayed?-1:1), prayed:!post.prayed} : post));
-  const deletePost = id => setPosts(p => p.filter(post => post.id !== id));
-  const submitPost = () => {
+  // ── Supabase: load posts with likes, prayers, comments ──────
+  const loadPosts = async () => {
+    setLoading(true);
+    try {
+      const { data: rawPosts } = await supabase
+        .from('community_posts')
+        .select('*, post_comments(*), post_likes(*), post_prayers(*)')
+        .order('created_at', { ascending: false });
+      if (rawPosts) {
+        const shaped = rawPosts.map(p => ({
+          id: p.id,
+          name: p.user_name,
+          email: p.user_email,
+          avatarColor: p.avatar_color || C.primary,
+          initial: p.avatar_initial || p.user_name.charAt(0).toUpperCase(),
+          isCurrentUser: p.user_email === userEmail,
+          time: new Date(p.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}),
+          text: p.text,
+          scripture: p.scripture,
+          likes: p.post_likes.length,
+          liked: p.post_likes.some(l => l.user_email === userEmail),
+          praying: p.post_prayers.length,
+          prayed: p.post_prayers.some(r => r.user_email === userEmail),
+          commentsList: p.post_comments.map(c => ({
+            id: c.id,
+            name: c.user_name,
+            text: c.text,
+            time: new Date(c.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}),
+          })).sort((a,b) => a.id - b.id),
+        }));
+        setPosts(shaped);
+      }
+    } catch(e) { console.error('loadPosts error', e); }
+    setLoading(false);
+  };
+
+  useEffect(() => { loadPosts(); }, []);
+
+  // ── Supabase: submit post ────────────────────────────────────
+  const submitPost = async () => {
     if (!np.text.trim()) return;
-    setPosts(p => [{ id:Date.now(), name:userName, initial:userName.charAt(0).toUpperCase(), avatarColor:user?.avatarColor||C.primary, isCurrentUser:true, time:'Just now', text:np.text, scripture:np.scripture, likes:0, praying:0, liked:false, prayed:false, commentsList:[] }, ...p]);
+    await supabase.from('community_posts').insert({
+      user_name: userName,
+      user_email: userEmail,
+      avatar_color: user?.avatarColor || C.primary,
+      avatar_initial: userName.charAt(0).toUpperCase(),
+      text: np.text.trim(),
+      scripture: np.scripture.trim() || null,
+    });
     setNp({text:'', scripture:''}); setCreate(false);
+    loadPosts();
+  };
+
+  // ── Supabase: toggle like ────────────────────────────────────
+  const toggleLike = async (postId) => {
+    const post = posts.find(p => p.id === postId);
+    if (!post) return;
+    if (post.liked) {
+      await supabase.from('post_likes').delete().match({ post_id: postId, user_email: userEmail });
+    } else {
+      await supabase.from('post_likes').insert({ post_id: postId, user_email: userEmail });
+    }
+    setPosts(p => p.map(post => post.id===postId ? {...post, likes:post.likes+(post.liked?-1:1), liked:!post.liked} : post));
+  };
+
+  // ── Supabase: toggle prayer ──────────────────────────────────
+  const togglePray = async (postId) => {
+    const post = posts.find(p => p.id === postId);
+    if (!post) return;
+    if (post.prayed) {
+      await supabase.from('post_prayers').delete().match({ post_id: postId, user_email: userEmail });
+    } else {
+      await supabase.from('post_prayers').insert({ post_id: postId, user_email: userEmail });
+    }
+    setPosts(p => p.map(post => post.id===postId ? {...post, praying:post.praying+(post.prayed?-1:1), prayed:!post.prayed} : post));
+  };
+
+  // ── Supabase: delete post ────────────────────────────────────
+  const deletePost = async (postId) => {
+    await supabase.from('community_posts').delete().eq('id', postId);
+    setPosts(p => p.filter(post => post.id !== postId));
+  };
+
+  // ── Supabase: add comment ────────────────────────────────────
+  const addComment = async (postId, comment) => {
+    await supabase.from('post_comments').insert({
+      post_id: postId,
+      user_name: userName,
+      user_email: userEmail,
+      text: comment.text,
+    });
+    setPosts(p => p.map(post => post.id===postId ? {...post, commentsList:[...(post.commentsList||[]), comment]} : post));
   };
 
   const filtered = posts
-    .filter(p => filter === 'mine' ? p.name === userName : true)
+    .filter(p => filter === 'mine' ? p.email === userEmail : true)
     .filter(p => !searchQ || p.text.toLowerCase().includes(searchQ.toLowerCase()) || (p.name||'').toLowerCase().includes(searchQ.toLowerCase()));
 
-  // ── Filter labels ──────────────────────────────────────────
   const filters = [
     { id:'all',     label:'All Posts' },
     { id:'mine',    label:'My Posts' },
@@ -2841,7 +2932,6 @@ function CommunityTab({ user, posts, setPosts }) {
         {filter === 'circles' && isPremium && <Btn small onClick={()=>setShowCreateCircle(true)}><Plus size={13}/> New Circle</Btn>}
       </div>
 
-      {/* Search bar */}
       {filter !== 'circles' && (
         <div style={{ position:'relative', marginBottom:10 }}>
           <input value={searchQ} onChange={e=>setSearchQ(e.target.value)} placeholder="Search posts..."
@@ -2854,7 +2944,6 @@ function CommunityTab({ user, posts, setPosts }) {
         </div>
       )}
 
-      {/* Filter tabs */}
       <div style={{ display:'flex', gap:8, marginBottom:15, overflowX:'auto', paddingBottom:2 }}>
         {filters.map(f=>(
           <div key={f.id} onClick={()=>setFilter(f.id)} style={{ padding:'6px 15px', borderRadius:99, border:`1.5px solid ${filter===f.id?C.primary:C.border}`, background:filter===f.id?C.primary:C.white, color:filter===f.id?C.white:C.muted, fontSize:12, fontWeight:600, cursor:'pointer', whiteSpace:'nowrap', flexShrink:0, transition:'all 0.15s' }}>
@@ -2863,18 +2952,14 @@ function CommunityTab({ user, posts, setPosts }) {
         ))}
       </div>
 
-      {/* ── CIRCLES PANEL ── */}
       {filter === 'circles' && !isPremium && (
         <PremiumGate feature="Accountability Circles" onUpgrade={()=>{
-          const u = {...user, plan:'premium'};
-          // notify parent — handled via onUpgrade if wired, fallback alert
           alert('Upgrade to Premium to unlock Accountability Circles! Visit Profile → Subscription & Plan.');
         }}/>
       )}
 
       {filter === 'circles' && isPremium && (
         <div>
-          {/* Create circle modal */}
           <Modal open={showCreateCircle} onClose={()=>setShowCreateCircle(false)} title="Create a Circle">
             <div style={{ display:'flex', flexDirection:'column', gap:13 }}>
               <Input label="Circle Name" placeholder='e.g. "Morning Warriors" or "Temple Sisters"' value={newCircleName} onChange={e=>setNewCircleName(e.target.value)}/>
@@ -2891,14 +2976,13 @@ function CommunityTab({ user, posts, setPosts }) {
             <div style={{ textAlign:'center', padding:'40px 20px' }}>
               <div style={{ width:64, height:64, borderRadius:18, background:`linear-gradient(135deg,${C.primary}20,${C.accent}20)`, display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 16px', fontSize:28 }}>🤝</div>
               <div className="serif" style={{ fontSize:22, fontWeight:700, color:C.text, marginBottom:8 }}>No circles yet</div>
-              <div style={{ fontSize:13, color:C.muted, lineHeight:1.65, marginBottom:20, maxWidth:280, margin:'0 auto 20px' }}>Create a small group of 5–8 women for intimate accountability, prayer, and shared wellness goals.</div>
+              <div style={{ fontSize:13, color:C.muted, lineHeight:1.65, marginBottom:20, maxWidth:280, margin:'0 auto 20px' }}>Create a small group of 5-8 women for intimate accountability, prayer, and shared wellness goals.</div>
               <Btn onClick={()=>setShowCreateCircle(true)}><Plus size={14}/> Create Your First Circle</Btn>
             </div>
           ) : (
             <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
               {myCircles.map(circle => (
                 <Card key={circle.id} pad={0} style={{ overflow:'hidden' }}>
-                  {/* Circle header */}
                   <div onClick={()=>setOpenCircleId(openCircleId===circle.id?null:circle.id)}
                     style={{ display:'flex', alignItems:'center', gap:13, padding:'15px 17px', cursor:'pointer', background:`linear-gradient(135deg,${C.primary}08,${C.accent}06)` }}>
                     <div style={{ width:44, height:44, borderRadius:13, background:C.primary, display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, flexShrink:0 }}>🤝</div>
@@ -2908,29 +2992,20 @@ function CommunityTab({ user, posts, setPosts }) {
                     </div>
                     <div style={{ fontSize:16, color:C.muted, transition:'transform .2s', transform:openCircleId===circle.id?'rotate(90deg)':'none' }}>›</div>
                   </div>
-
-                  {/* Expanded circle content */}
                   {openCircleId === circle.id && (
                     <div style={{ padding:'0 17px 17px' }}>
-                      {/* Opening prayer */}
                       <div style={{ background:C.bgAlt, borderRadius:10, padding:'10px 13px', margin:'12px 0', borderLeft:`3px solid ${C.accent}` }}>
                         <div style={{ fontSize:10, fontWeight:700, color:C.accent, marginBottom:4, textTransform:'uppercase', letterSpacing:'.05em' }}>🙏 Circle Prayer</div>
                         <div style={{ fontSize:13, color:C.text, fontStyle:'italic', lineHeight:1.6 }}>"{circle.prayer}"</div>
                       </div>
-
-                      {/* Members */}
                       <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:12 }}>
                         {circle.members.map((m,i) => (
                           <div key={i} style={{ width:30, height:30, borderRadius:'50%', background:m.color||C.primary, display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, fontWeight:700, color:'#fff', border:`2px solid ${C.bg}`, marginLeft:i>0?-8:0 }}>
                             {m.initial}
                           </div>
                         ))}
-                        <div style={{ fontSize:12, color:C.muted, marginLeft:6 }}>
-                          {circle.members.map(m=>m.isYou?'You':m.name).join(', ')}
-                        </div>
+                        <div style={{ fontSize:12, color:C.muted, marginLeft:6 }}>{circle.members.map(m=>m.isYou?'You':m.name).join(', ')}</div>
                       </div>
-
-                      {/* Circle posts */}
                       {circle.posts.length > 0 && (
                         <div style={{ display:'flex', flexDirection:'column', gap:10, marginBottom:12 }}>
                           {circle.posts.map(post => (
@@ -2948,8 +3023,6 @@ function CommunityTab({ user, posts, setPosts }) {
                           ))}
                         </div>
                       )}
-
-                      {/* Post to circle */}
                       <div style={{ display:'flex', gap:8, alignItems:'center' }}>
                         <input value={circlePostText} onChange={e=>setCirclePostText(e.target.value)} onKeyDown={e=>e.key==='Enter'&&postToCircle(circle.id)}
                           placeholder="Share a prayer request or encouragement..." className="ff-input"
@@ -2968,10 +3041,14 @@ function CommunityTab({ user, posts, setPosts }) {
         </div>
       )}
 
-      {/* ── FEED PANEL ── */}
       {filter !== 'circles' && (
         <div style={{ display:'flex', flexDirection:'column', gap:13 }}>
-          {filtered.length === 0 && (
+          {loading && (
+            <div style={{ textAlign:'center', padding:'40px 20px', color:C.muted }}>
+              <div style={{ fontSize:13 }}>Loading community posts...</div>
+            </div>
+          )}
+          {!loading && filtered.length === 0 && (
             <div style={{ textAlign:'center', padding:'40px 20px', color:C.muted }}>
               <div style={{ fontSize:32, marginBottom:12 }}>🌿</div>
               <div style={{ fontWeight:600, fontSize:15, color:C.text, marginBottom:6 }}>
@@ -2983,8 +3060,8 @@ function CommunityTab({ user, posts, setPosts }) {
               <Btn small onClick={()=>setCreate(true)}><Plus size={13}/> Share Something</Btn>
             </div>
           )}
-          {filtered.map(post=>(
-            <PostCard key={post.id} post={post} currentUser={userName} currentUserData={user} onLike={toggleLike} onPray={togglePray} onDelete={deletePost}/>
+          {!loading && filtered.map(post=>(
+            <PostCard key={post.id} post={post} currentUser={userName} currentUserData={user} onLike={toggleLike} onPray={togglePray} onDelete={deletePost} onComment={addComment}/>
           ))}
         </div>
       )}
@@ -2997,8 +3074,7 @@ function CommunityTab({ user, posts, setPosts }) {
           <Btn full onClick={submitPost}><Send size={13}/> Post to Community</Btn>
         </div>
       </Modal>
-    </div>
-  );
+    </div>  );
 }
 
 
@@ -3006,16 +3082,8 @@ function CommunityTab({ user, posts, setPosts }) {
 // ─── PROFILE PERSISTENCE HELPERS ──────────────────────────────────────────────
 function saveUserProfile(data) {
   try { localStorage.setItem('ff_user', JSON.stringify(data)); } catch(e) {}
-  if (data && data.email) {
-    try { localStorage.setItem('ff_profile_' + data.email, JSON.stringify(data)); } catch(e) {}
-  }
 }
-function loadUserProfile(email) {
-  if (email) {
-    try { const p = JSON.parse(localStorage.getItem('ff_profile_' + email) || 'null'); if (p) return p; } catch(e) {}
-    try { const u = JSON.parse(localStorage.getItem('ff_user') || 'null'); if (u && u.email === email) return u; } catch(e) {}
-    return null;
-  }
+function loadUserProfile() {
   try { return JSON.parse(localStorage.getItem('ff_user') || 'null'); } catch(e) { return null; }
 }
 function saveUserGoals(goals) {
@@ -3416,8 +3484,11 @@ function ProfileTab({ user, onSignOut, onUpdateUser, appSettings, onUpdateSettin
 
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 function MainApp({ user: initialUser, onSignOut }) {
-  // Use the auth-provided user directly - profile is already loaded correctly by handleAuth
-  const mergedUser = initialUser;
+  // Merge saved profile over the auth-provided user (name, email survive re-login)
+  const savedProfile = loadUserProfile();
+  const mergedUser = savedProfile
+    ? { ...initialUser, ...savedProfile, plan: initialUser.plan || savedProfile.plan || 'free' }
+    : initialUser;
 
   const [user, setUser] = useState(mergedUser);
 
@@ -3630,7 +3701,7 @@ function MainApp({ user: initialUser, onSignOut }) {
                 user={user} onUpgrade={handleUpgrade}
               />
             )}
-            {tab==='community' && <CommunityTab user={user} posts={posts} setPosts={setPostsAndSave}/>}
+            {tab==='community' && <CommunityTab user={user}/>}
             {tab==='sage' && <SageTab user={user}/>}
             {tab==='profile' && <ProfileTab user={user} onSignOut={onSignOut} onUpdateUser={handleUpdateUser} appSettings={appSettings} onUpdateSettings={handleUpdateSettings}/>}
           </div>
@@ -4271,20 +4342,15 @@ export default function FlourishAndFaith() {
   };
 
   const handleAuth=(data)=>{
-    if (data.isLogin) {
-      // Returning user - restore snapshot first, then load their profile by email
-      restoreUserData(data.email);
-      const savedProfile = loadUserProfile(data.email);
-      if (savedProfile) {
-        setUser({ ...savedProfile, plan: savedProfile.plan || 'free' });
-      } else {
-        const fallback = { name: data.email.split('@')[0], email: data.email, plan: 'free', covenant: '' };
-        setUser(fallback);
-        saveUserProfile(fallback);
-      }
+    const savedProfile = loadUserProfile();
+    if (data.isLogin && savedProfile) {
+      // Returning user — restore their tracking data then load profile
+      restoreUserData(savedProfile.email);
+      const merged = { ...savedProfile, plan: savedProfile.plan || 'free' };
+      setUser(merged);
       setScreen('app');
     } else {
-      // New sign-up - wipe all previous data and start fresh
+      // New user — clear any previous user's data first, then start fresh
       clearAllUserData();
       const newUser = {...data, plan:'free', covenant:''};
       setUser(newUser);
@@ -4294,8 +4360,8 @@ export default function FlourishAndFaith() {
   };
 
   const handleSignOut = () => {
-    if (user && user.email) saveUserData(user.email);
-    try { localStorage.removeItem('ff_user'); } catch(e) {}
+    // Save this user's tracking data keyed by email, then clear shared keys
+    if (user?.email) saveUserData(user.email);
     USER_DATA_KEYS.forEach(k => {
       try { localStorage.removeItem(k); } catch(e) {}
     });
