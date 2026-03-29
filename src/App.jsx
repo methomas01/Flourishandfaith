@@ -4141,7 +4141,13 @@ const LP = {
         font-size: 32px !important;
       }
 
-      /* ── 5. All sections — 40px top/bottom, 20px sides ── */
+      /* ── FAQ section — stack on mobile, FAQs above CTA ── */
+      .lp-faq-grid {
+        grid-template-columns: 1fr !important;
+        gap: 32px !important;
+      }
+      .lp-faq-accordion { order: -1 !important; }
+      .lp-faq-cta { order: 1 !important; }
       .lp-section {
         padding: 40px 20px !important;
       }
@@ -4547,9 +4553,9 @@ function LandingPage({ onSignup, onSignIn }) {
       {/* ── FAQ ── */}
       <section id="faq" className="lp-section lp-faq-section" style={{ background:C.bg, padding:'90px 0' }}>
         <div style={S.container}>
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1.1fr', gap:80, alignItems:'start' }}>
-            {/* Left */}
-            <div>
+          <div className="lp-faq-grid" style={{ display:'grid', gridTemplateColumns:'1fr 1.1fr', gap:80, alignItems:'start' }}>
+            {/* Left — CTA box */}
+            <div className="lp-faq-cta">
               <div style={{ fontSize:11, fontWeight:500, color:C.muted, letterSpacing:'.04em', textTransform:'uppercase', marginBottom:14, display:'inline-flex', alignItems:'center', gap:7, background:C.bgAlt, border:`1px solid ${C.border}`, borderRadius:99, padding:'5px 15px' }}>
                 <span style={{ width:6, height:6, borderRadius:'50%', background:'#7FA876', display:'inline-block' }}/>Got Questions?
               </div>
@@ -4569,7 +4575,7 @@ function LandingPage({ onSignup, onSignIn }) {
               </div>
             </div>
             {/* Right — accordion */}
-            <div>
+            <div className="lp-faq-accordion">
               {LP_FAQ.map((item, i)=>(
                 <div key={i} style={{ borderBottom:`1px solid ${C.border}`, ...(i===0?{borderTop:`1px solid ${C.border}`}:{}) }}>
                   <button className="lp-faq-trigger" onClick={()=>setOpenFaq(openFaq===i?null:i)} style={{ width:'100%', display:'flex', justifyContent:'space-between', alignItems:'center', padding:'20px 0', background:'none', border:'none', cursor:'pointer', gap:16, textAlign:'left' }}>
