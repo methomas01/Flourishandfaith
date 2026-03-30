@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { supabase } from './lib/supabase.js';
 import {
   Home, BarChart2, Users, User, Settings, BookOpen, Droplets, ArrowLeft,
   Plus, ChevronRight, Check, X, Eye, EyeOff, CheckCircle, Bell, Award,
@@ -418,10 +419,9 @@ function SageTab({ user }) {
     const historyWithNew = [...currentHistory, { role:'user', content: userText }];
 
     try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
+      const res = await fetch('/api/sage', {
         method:'POST', headers:{ 'Content-Type':'application/json' },
         body: JSON.stringify({
-          model:'claude-sonnet-4-20250514', max_tokens:600,
           system: SAGE_SYSTEM + (user?.covenant ? `\n\nUser's Wellness Covenant: "${user.covenant}"` : ''),
           messages: historyWithNew.slice(-12),
         }),
@@ -642,6 +642,8 @@ function AuthScreen({ onDone }) {
   const [showPw, setShowPw] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [authError, setAuthError] = useState('');
   const [forgotMode, setForgotMode] = useState(false);
   const [forgotSent, setForgotSent] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
@@ -659,11 +661,19 @@ function AuthScreen({ onDone }) {
     return errs;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const errs = validate();
     if (Object.keys(errs).length > 0) { setErrors(errs); return; }
     setErrors({});
-    onDone({ name: name.trim() || 'Friend', email: email.trim().toLowerCase(), isLogin: tab === 'login' });
+    setLoading(true);
+    setAuthError('');
+    try {
+      await onDone({ name: name.trim() || 'Friend', email: email.trim().toLowerCase(), password, isLogin: tab === 'login' });
+    } catch (e) {
+      setAuthError(e.message || 'Something went wrong. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (forgotMode) return (
@@ -690,7 +700,12 @@ function AuthScreen({ onDone }) {
               Enter the email address associated with your account and we'll send you a reset link.
             </div>
             <Input label="Email Address" type="email" placeholder="you@example.com" value={forgotEmail} onChange={e=>setForgotEmail(e.target.value)}/>
-            <Btn full onClick={()=>{ if(isValidEmail(forgotEmail)) setForgotSent(true); }} style={{ opacity: isValidEmail(forgotEmail)?1:0.6 }}>
+            <Btn full onClick={async ()=>{
+              if (isValidEmail(forgotEmail)) {
+                if (supabase) await supabase.auth.resetPasswordForEmail(forgotEmail);
+                setForgotSent(true);
+              }
+            }} style={{ opacity: isValidEmail(forgotEmail)?1:0.6 }}>
               Send Reset Link
             </Btn>
             <Btn full variant="ghost" onClick={()=>setForgotMode(false)}>← Back to Sign In</Btn>
@@ -739,8 +754,13 @@ function AuthScreen({ onDone }) {
             {errors.agreed && <div style={{ fontSize:12, color:'#E57373', marginTop:4 }}>⚠ {errors.agreed}</div>}
           </div>
         )}
-        <Btn full onClick={handleSubmit} style={{ marginTop:4 }}>
-          {tab==='signup' ? 'Create Account' : 'Sign In'}
+        {authError && (
+          <div style={{ background:'#FFEBEE', border:'1px solid #FFCDD2', borderRadius:10, padding:'10px 14px', fontSize:13, color:'#C62828' }}>
+            ⚠ {authError}
+          </div>
+        )}
+        <Btn full onClick={handleSubmit} style={{ marginTop:4, opacity: loading ? 0.7 : 1 }}>
+          {loading ? 'Please wait…' : (tab==='signup' ? 'Create Account' : 'Sign In')}
         </Btn>
         {tab==='login' && (
           <button onClick={()=>{ setForgotMode(true); setForgotEmail(email); }}
@@ -4748,6 +4768,7 @@ export default function FlourishAndFaith() {
   const [covenant, setCovenant] = useState('');
   const [pwaPrompt, setPwaPrompt] = useState(null);
   const [showPwaBanner, setShowPwaBanner] = useState(false);
+  const isNewSignup = React.useRef(false);
 
   // Capture the PWA install event (Android Chrome only)
   useEffect(() => {
@@ -4784,6 +4805,77 @@ export default function FlourishAndFaith() {
   // Detect iOS for showing manual instructions
   const isIos = /iphone|ipad|ipod/i.test(typeof navigator !== 'undefined' ? navigator.userAgent : '');
 
+  // ── Restore a Supabase-authenticated user into app state ──
+  const restoreSupabaseSession = async (supaUser, newUser = false) => {
+    const baseProfile = {
+      name: supaUser.user_metadata?.full_name || supaUser.email?.split('@')[0] || 'Friend',
+      email: supaUser.email,
+      plan: 'free',
+      covenant: '',
+      supabaseId: supaUser.id,
+    };
+
+    try {
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('full_name, subscription_status')
+        .eq('id', supaUser.id)
+        .single();
+
+      if (existingProfile) {
+        const merged = {
+          ...baseProfile,
+          name: existingProfile.full_name || baseProfile.name,
+          plan: existingProfile.subscription_status === 'active' ? 'premium' : 'free',
+        };
+        // Preserve local UI preferences (avatar, covenant) if same user
+        const local = loadUserProfile();
+        const final = local?.email === merged.email
+          ? { ...merged, covenant: local.covenant || '', avatarColor: local.avatarColor, avatarPhoto: local.avatarPhoto }
+          : merged;
+        setUser(final);
+        saveUserProfile(final);
+        setScreen('app');
+        return;
+      }
+    } catch { /* table may not exist yet — fall through */ }
+
+    // No profile row yet — create one and treat as new user
+    try {
+      await supabase.from('profiles').upsert({
+        id: supaUser.id,
+        email: supaUser.email,
+        full_name: baseProfile.name,
+      });
+    } catch { /* ignore — table may not be set up yet */ }
+
+    setUser(baseProfile);
+    saveUserProfile(baseProfile);
+    setScreen(newUser ? 'goals' : 'app');
+  };
+
+  // ── Supabase auth state listener ──
+  useEffect(() => {
+    if (!supabase) return;
+
+    // Restore existing session on page load
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) restoreSupabaseSession(session.user, false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
+        await restoreSupabaseSession(session.user, isNewSignup.current);
+        isNewSignup.current = false;
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null);
+        setScreen('landing');
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
   // Clear all user-specific localStorage keys
   const clearAllUserData = () => {
     ['ff_user','ff_daily','ff_posts','ff_weight','ff_circles','ff_programs',
@@ -4792,32 +4884,60 @@ export default function FlourishAndFaith() {
     });
   };
 
-  const handleAuth = (data) => {
+  const handleAuth = async (data) => {
+    // ── Supabase auth (when configured) ──
+    if (supabase) {
+      if (data.isLogin) {
+        const { error } = await supabase.auth.signInWithPassword({
+          email: data.email,
+          password: data.password,
+        });
+        if (error) throw new Error(error.message);
+        // onAuthStateChange fires SIGNED_IN → restoreSupabaseSession handles navigation
+      } else {
+        isNewSignup.current = true;
+        const { data: authData, error } = await supabase.auth.signUp({
+          email: data.email,
+          password: data.password,
+          options: { data: { full_name: data.name } },
+        });
+        if (error) {
+          isNewSignup.current = false;
+          throw new Error(error.message);
+        }
+        // If email confirmation is required, session is null — proceed manually
+        if (!authData?.session) {
+          isNewSignup.current = false;
+          clearAllUserData();
+          const newUser = { name: data.name || 'Friend', email: data.email, plan: 'free', covenant: '' };
+          setUser(newUser);
+          saveUserProfile(newUser);
+          setScreen('goals');
+        }
+        // If auto-confirmed, onAuthStateChange fires SIGNED_IN
+      }
+      return;
+    }
+
+    // ── localStorage fallback (Supabase not configured) ──
     if (data.isLogin) {
-      // ── SIGN IN ──
-      // Try to find the saved profile by email
       const savedProfile = loadUserProfile();
       if (savedProfile && savedProfile.email === data.email) {
-        // Perfect match — restore full profile, all data stays intact
         const merged = { ...savedProfile, plan: savedProfile.plan || 'free' };
         setUser(merged);
         setScreen('app');
       } else if (savedProfile && !savedProfile.email) {
-        // Old profile with no email saved — still restore it
         const merged = { ...savedProfile, email: data.email, plan: savedProfile.plan || 'free' };
         setUser(merged);
         saveUserProfile(merged);
         setScreen('app');
       } else {
-        // No matching profile found — sign them in with what we have
-        // Do NOT wipe data, do NOT call clearAllUserData
         const fallback = savedProfile || { name: data.email.split('@')[0], email: data.email, plan: 'free', covenant: '' };
         setUser(fallback);
         saveUserProfile(fallback);
         setScreen('app');
       }
     } else {
-      // ── SIGN UP ── New user — clear previous user's data, start fresh
       clearAllUserData();
       const newUser = { name: data.name || 'Friend', email: data.email, plan: 'free', covenant: '' };
       setUser(newUser);
@@ -4826,12 +4946,15 @@ export default function FlourishAndFaith() {
     }
   };
 
-  const handleSignOut = () => {
-    // Only clear the Sage daily counter on sign-out; keep all tracking data
-    // so the user sees it when they sign back in
+  const handleSignOut = async () => {
     try { localStorage.removeItem('ff_sage_daily'); } catch(e) {}
-    setUser(null);
-    setScreen('landing');
+    if (supabase) {
+      await supabase.auth.signOut();
+      // onAuthStateChange fires SIGNED_OUT → sets user null + screen landing
+    } else {
+      setUser(null);
+      setScreen('landing');
+    }
   };
   const handleSub=(plan)=>{
     const fullUser = { ...user, plan, covenant };
