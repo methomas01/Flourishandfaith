@@ -780,6 +780,18 @@ function AuthScreen({ onDone }) {
 }
 
 function GoalSettingScreen({ onNext }) {
+  const GOAL_OPTS = [
+    'Lose weight gracefully',
+    'Eat healthier, whole foods',
+    'Build a consistent movement habit',
+    'Drink more water daily',
+    'Deepen my faith through wellness',
+    'Reduce stress and anxiety',
+    'Sleep better and rest more',
+    'Build accountability with other women',
+    'Feel more energized and confident',
+    'Honor God with how I care for my body',
+  ];
   const [sel, setSel] = useState([]);
   const handleNext = () => {
     if (sel.length > 0) {
