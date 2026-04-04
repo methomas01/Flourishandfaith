@@ -4868,15 +4868,18 @@ export default function FlourishAndFaith() {
 
   const handleAuth = async (data) => {
     // ── Supabase auth (when configured) ──
+    console.log('[FF] handleAuth start — supabase:', !!supabase, 'isLogin:', data.isLogin);
     if (supabase) {
       const timeout = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('Request timed out — please check your connection and try again.')), 10000)
       );
       if (data.isLogin) {
+        console.log('[FF] calling signInWithPassword...');
         const { data: authData, error } = await Promise.race([
           supabase.auth.signInWithPassword({ email: data.email, password: data.password }),
           timeout,
         ]);
+        console.log('[FF] signInWithPassword returned — error:', error?.message, 'user:', !!authData?.user);
         if (error) throw new Error(error.message);
         if (authData?.user) restoreSupabaseSession(authData.user, false);
       } else {
