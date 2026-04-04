@@ -4869,20 +4869,21 @@ export default function FlourishAndFaith() {
   const handleAuth = async (data) => {
     // ── Supabase auth (when configured) ──
     if (supabase) {
+      const timeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Request timed out — please check your connection and try again.')), 10000)
+      );
       if (data.isLogin) {
-        const { data: authData, error } = await supabase.auth.signInWithPassword({
-          email: data.email,
-          password: data.password,
-        });
+        const { data: authData, error } = await Promise.race([
+          supabase.auth.signInWithPassword({ email: data.email, password: data.password }),
+          timeout,
+        ]);
         if (error) throw new Error(error.message);
-        // Directly restore session instead of waiting for onAuthStateChange
-        if (authData?.user) await restoreSupabaseSession(authData.user, false);
+        if (authData?.user) restoreSupabaseSession(authData.user, false);
       } else {
-        const { data: authData, error } = await supabase.auth.signUp({
-          email: data.email,
-          password: data.password,
-          options: { data: { full_name: data.name } },
-        });
+        const { data: authData, error } = await Promise.race([
+          supabase.auth.signUp({ email: data.email, password: data.password, options: { data: { full_name: data.name } } }),
+          timeout,
+        ]);
         if (error) throw new Error(error.message);
         if (authData?.session?.user) {
           // Auto-confirmed — restore session directly
