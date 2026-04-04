@@ -4900,33 +4900,31 @@ export default function FlourishAndFaith() {
     // ── Supabase auth (when configured) ──
     if (supabase) {
       if (data.isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data: authData, error } = await supabase.auth.signInWithPassword({
           email: data.email,
           password: data.password,
         });
         if (error) throw new Error(error.message);
-        // onAuthStateChange fires SIGNED_IN → restoreSupabaseSession handles navigation
+        // Directly restore session instead of waiting for onAuthStateChange
+        if (authData?.user) await restoreSupabaseSession(authData.user, false);
       } else {
-        isNewSignup.current = true;
         const { data: authData, error } = await supabase.auth.signUp({
           email: data.email,
           password: data.password,
           options: { data: { full_name: data.name } },
         });
-        if (error) {
-          isNewSignup.current = false;
-          throw new Error(error.message);
-        }
-        // If email confirmation is required, session is null — proceed manually
-        if (!authData?.session) {
-          isNewSignup.current = false;
+        if (error) throw new Error(error.message);
+        if (authData?.session?.user) {
+          // Auto-confirmed — restore session directly
+          await restoreSupabaseSession(authData.session.user, true);
+        } else {
+          // Email confirmation required — proceed locally
           clearAllUserData();
           const newUser = { name: data.name || 'Friend', email: data.email, plan: 'free', covenant: '' };
           setUser(newUser);
           saveUserProfile(newUser);
           setScreen('goals');
         }
-        // If auto-confirmed, onAuthStateChange fires SIGNED_IN
       }
       return;
     }
