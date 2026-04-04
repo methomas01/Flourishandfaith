@@ -10,13 +10,18 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 let supabase = null
 
 if (supabaseUrl && supabaseAnonKey) {
-  supabase = createClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      autoRefreshToken: true,
-      persistSession: true,
-      detectSessionInUrl: true,
-    },
-  })
+  try {
+    supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true,
+      },
+    })
+  } catch (e) {
+    console.error('[Flourish & Faith] Supabase init failed:', e.message)
+    console.warn('[Flourish & Faith] Check that VITE_SUPABASE_URL is a valid https:// URL from your Supabase project settings.')
+  }
 } else {
   console.warn(
     '[Flourish & Faith] Supabase env vars not set. Auth and cloud sync are disabled. ' +
