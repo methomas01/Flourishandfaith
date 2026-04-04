@@ -4826,13 +4826,18 @@ export default function FlourishAndFaith() {
       covenant: '',
       supabaseId: supaUser.id,
     };
-    // Preserve local UI preferences (avatar, covenant) if same user
+    // Preserve local UI preferences only if it's the same user
     const local = loadUserProfile();
-    const final = local?.email === profile.email
-      ? { ...profile, covenant: local.covenant || '', avatarColor: local.avatarColor, avatarPhoto: local.avatarPhoto }
-      : profile;
-    setUser(final);
-    saveUserProfile(final);
+    if (local?.email === profile.email) {
+      const final = { ...profile, covenant: local.covenant || '', avatarColor: local.avatarColor, avatarPhoto: local.avatarPhoto };
+      setUser(final);
+      saveUserProfile(final);
+    } else {
+      // Different user — wipe previous user's tracking data
+      clearAllUserData();
+      setUser(profile);
+      saveUserProfile(profile);
+    }
     setScreen(newUser ? 'goals' : 'app');
   };
 
