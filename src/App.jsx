@@ -4818,51 +4818,21 @@ export default function FlourishAndFaith() {
   const isIos = /iphone|ipad|ipod/i.test(typeof navigator !== 'undefined' ? navigator.userAgent : '');
 
   // ── Restore a Supabase-authenticated user into app state ──
-  const restoreSupabaseSession = async (supaUser, newUser = false) => {
-    const baseProfile = {
+  const restoreSupabaseSession = (supaUser, newUser = false) => {
+    const profile = {
       name: supaUser.user_metadata?.full_name || supaUser.email?.split('@')[0] || 'Friend',
       email: supaUser.email,
       plan: 'free',
       covenant: '',
       supabaseId: supaUser.id,
     };
-
-    try {
-      const { data: existingProfile } = await supabase
-        .from('profiles')
-        .select('full_name, subscription_status')
-        .eq('id', supaUser.id)
-        .single();
-
-      if (existingProfile) {
-        const merged = {
-          ...baseProfile,
-          name: existingProfile.full_name || baseProfile.name,
-          plan: existingProfile.subscription_status === 'active' ? 'premium' : 'free',
-        };
-        // Preserve local UI preferences (avatar, covenant) if same user
-        const local = loadUserProfile();
-        const final = local?.email === merged.email
-          ? { ...merged, covenant: local.covenant || '', avatarColor: local.avatarColor, avatarPhoto: local.avatarPhoto }
-          : merged;
-        setUser(final);
-        saveUserProfile(final);
-        setScreen('app');
-        return;
-      }
-    } catch { /* table may not exist yet — fall through */ }
-
-    // No profile row yet — create one and treat as new user
-    try {
-      await supabase.from('profiles').upsert({
-        id: supaUser.id,
-        email: supaUser.email,
-        full_name: baseProfile.name,
-      });
-    } catch { /* ignore — table may not be set up yet */ }
-
-    setUser(baseProfile);
-    saveUserProfile(baseProfile);
+    // Preserve local UI preferences (avatar, covenant) if same user
+    const local = loadUserProfile();
+    const final = local?.email === profile.email
+      ? { ...profile, covenant: local.covenant || '', avatarColor: local.avatarColor, avatarPhoto: local.avatarPhoto }
+      : profile;
+    setUser(final);
+    saveUserProfile(final);
     setScreen(newUser ? 'goals' : 'app');
   };
 
