@@ -4272,10 +4272,107 @@ function Star5({ size=14, color='#C9A961' }) {
 }
 
 const LP_FEATURES = [
-  { photo:'/icons/feat-devotionals.jpg', title:'Daily Devotionals', desc:'365 faith-wellness devotionals connecting Scripture to your physical journey. Track streaks and journal your reflections.' },
-  { photo:'/icons/feat-tracking.jpg', title:'Grace-Centered Tracking', desc:'Log food, water, weight, and movement without shame. Encouraging feedback that celebrates progress, not punishes setbacks.' },
-  { photo:'/icons/feat-circles.jpg', title:'Accountability Circles', desc:'Small groups of 5–8 women to share prayer requests, celebrate wins, and walk the journey together.', premium:true },
-  { photo:'/icons/feat-sage.jpg', title:'Sage AI Coach', desc:'Your faith-integrated AI wellness coach. Ask anything — meal ideas, motivation, Scripture for hard days.' },
+  {
+    title:'Daily Devotionals',
+    desc:'365 faith-wellness devotionals connecting Scripture to your physical journey. Track streaks and journal your reflections.',
+    graphic:(
+      <div style={{ width:'100%', height:'100%', background:'linear-gradient(135deg,#d6eacc 0%,#a8cfa0 100%)', display:'flex', alignItems:'center', justifyContent:'center', position:'relative', overflow:'hidden' }}>
+        <div style={{ position:'absolute', width:110, height:110, borderRadius:'50%', background:'rgba(255,255,255,0.18)', top:-30, right:-25 }}/>
+        <div style={{ position:'absolute', width:55, height:55, borderRadius:'50%', background:'rgba(255,255,255,0.12)', bottom:8, left:12 }}/>
+        <svg width="96" height="80" viewBox="0 0 96 80" fill="none">
+          {/* Left page */}
+          <rect x="4" y="16" width="40" height="50" rx="4" fill="white" opacity="0.92"/>
+          {/* Right page */}
+          <rect x="52" y="16" width="40" height="50" rx="4" fill="white" opacity="0.92"/>
+          {/* Spine */}
+          <rect x="43" y="13" width="10" height="56" rx="3" fill="#5A7B4F" opacity="0.55"/>
+          {/* Text lines left */}
+          <line x1="11" y1="29" x2="38" y2="29" stroke="#5A7B4F" strokeWidth="2" strokeOpacity="0.35" strokeLinecap="round"/>
+          <line x1="11" y1="37" x2="38" y2="37" stroke="#5A7B4F" strokeWidth="2" strokeOpacity="0.35" strokeLinecap="round"/>
+          <line x1="11" y1="45" x2="38" y2="45" stroke="#5A7B4F" strokeWidth="2" strokeOpacity="0.35" strokeLinecap="round"/>
+          <line x1="11" y1="53" x2="28" y2="53" stroke="#5A7B4F" strokeWidth="2" strokeOpacity="0.35" strokeLinecap="round"/>
+          {/* Text lines right */}
+          <line x1="59" y1="29" x2="86" y2="29" stroke="#5A7B4F" strokeWidth="2" strokeOpacity="0.35" strokeLinecap="round"/>
+          <line x1="59" y1="37" x2="86" y2="37" stroke="#5A7B4F" strokeWidth="2" strokeOpacity="0.35" strokeLinecap="round"/>
+          <line x1="59" y1="45" x2="86" y2="45" stroke="#5A7B4F" strokeWidth="2" strokeOpacity="0.35" strokeLinecap="round"/>
+          <line x1="59" y1="53" x2="74" y2="53" stroke="#5A7B4F" strokeWidth="2" strokeOpacity="0.35" strokeLinecap="round"/>
+          {/* Cross above spine */}
+          <rect x="45" y="1" width="6" height="18" rx="3" fill="#5A7B4F" opacity="0.75"/>
+          <rect x="39" y="6" width="18" height="6" rx="3" fill="#5A7B4F" opacity="0.75"/>
+        </svg>
+      </div>
+    ),
+  },
+  {
+    title:'Grace-Centered Tracking',
+    desc:'Log food, water, weight, and movement without shame. Encouraging feedback that celebrates progress, not punishes setbacks.',
+    graphic:(
+      <div style={{ width:'100%', height:'100%', background:'linear-gradient(135deg,#fbf0d9 0%,#f0d58a 100%)', display:'flex', alignItems:'center', justifyContent:'center', position:'relative', overflow:'hidden' }}>
+        <div style={{ position:'absolute', width:90, height:90, borderRadius:'50%', background:'rgba(255,255,255,0.25)', top:-20, left:-20 }}/>
+        <svg width="104" height="80" viewBox="0 0 104 80" fill="none">
+          {/* Heart */}
+          <path d="M52 70C52 70 14 47 14 25C14 14.5 22.5 7 32 7C38.5 7 45 11 52 19C59 11 65.5 7 72 7C81.5 7 90 14.5 90 25C90 47 52 70 52 70Z" fill="#C9A961" opacity="0.88"/>
+          {/* Checkmark */}
+          <path d="M37 37L47 48L68 27" stroke="white" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round"/>
+          {/* Water drop */}
+          <path d="M95 42C95 42 89 50 89 55C89 58.3 91.7 61 95 61C98.3 61 101 58.3 101 55C101 50 95 42 95 42Z" fill="#5899C4" opacity="0.7"/>
+          {/* Apple */}
+          <circle cx="10" cy="52" r="9" fill="#7FA876" opacity="0.75"/>
+          <path d="M10 43C10 43 13.5 39.5 17 41" stroke="#5A7B4F" strokeWidth="1.8" strokeLinecap="round" opacity="0.75"/>
+        </svg>
+      </div>
+    ),
+  },
+  {
+    title:'Accountability Circles',
+    desc:'Small groups of 5–8 women to share prayer requests, celebrate wins, and walk the journey together.',
+    premium:true,
+    graphic:(
+      <div style={{ width:'100%', height:'100%', background:'linear-gradient(135deg,#d4e8f6 0%,#96c2de 100%)', display:'flex', alignItems:'center', justifyContent:'center', position:'relative', overflow:'hidden' }}>
+        <div style={{ position:'absolute', width:100, height:100, borderRadius:'50%', background:'rgba(255,255,255,0.18)', bottom:-28, right:-18 }}/>
+        <svg width="108" height="76" viewBox="0 0 108 76" fill="none">
+          {/* Left figure */}
+          <circle cx="25" cy="22" r="10" fill="white" opacity="0.88"/>
+          <path d="M7 62C7 49 15 42 25 42C35 42 43 49 43 62" fill="white" opacity="0.88"/>
+          {/* Middle figure (taller) */}
+          <circle cx="54" cy="19" r="12" fill="#3A6B9A" opacity="0.82"/>
+          <path d="M34 62C34 47 43 39 54 39C65 39 74 47 74 62" fill="#3A6B9A" opacity="0.82"/>
+          {/* Right figure */}
+          <circle cx="83" cy="22" r="10" fill="white" opacity="0.88"/>
+          <path d="M65 62C65 49 73 42 83 42C93 42 101 49 101 62" fill="white" opacity="0.88"/>
+          {/* Heart between them */}
+          <path d="M54 32C54 32 49 27 49 24C49 21.8 50.8 20 53 20C53.7 20 54.3 20.3 54 20.3C53.7 20.3 54.3 20 55 20C57.2 20 59 21.8 59 24C59 27 54 32 54 32Z" fill="#C9A961" opacity="0.9"/>
+        </svg>
+      </div>
+    ),
+  },
+  {
+    title:'Sage AI Coach',
+    desc:'Your faith-integrated AI wellness coach. Ask anything — meal ideas, motivation, Scripture for hard days.',
+    graphic:(
+      <div style={{ width:'100%', height:'100%', background:'linear-gradient(135deg,#2c4a28 0%,#4a7a40 100%)', display:'flex', alignItems:'center', justifyContent:'center', position:'relative', overflow:'hidden' }}>
+        <div style={{ position:'absolute', width:80, height:80, borderRadius:'50%', background:'rgba(255,255,255,0.07)', top:-12, left:-12 }}/>
+        <div style={{ position:'absolute', width:50, height:50, borderRadius:'50%', background:'rgba(255,255,255,0.05)', bottom:-8, right:36 }}/>
+        <svg width="104" height="76" viewBox="0 0 104 76" fill="none">
+          {/* Top chat bubble */}
+          <rect x="6" y="4" width="62" height="34" rx="14" fill="white" opacity="0.92"/>
+          <path d="M18 38L11 50L30 38Z" fill="white" opacity="0.92"/>
+          {/* Typing dots */}
+          <circle cx="24" cy="21" r="4" fill="#5A7B4F"/>
+          <circle cx="37" cy="21" r="4" fill="#5A7B4F"/>
+          <circle cx="50" cy="21" r="4" fill="#5A7B4F"/>
+          {/* Bottom bubble (reply) */}
+          <rect x="36" y="42" width="62" height="28" rx="12" fill="#C9A961" opacity="0.88"/>
+          <path d="M82 70L90 78L72 70Z" fill="#C9A961" opacity="0.88"/>
+          {/* Leaf in reply bubble */}
+          <path d="M55 52C55 52 60 48 66 52C62 56 56 58 52 56C52 56 51 54 55 52Z" fill="white" opacity="0.75"/>
+          {/* Sparkle top right */}
+          <path d="M91 6L93 13L100 15L93 17L91 24L89 17L82 15L89 13Z" fill="#C9A961" opacity="0.9"/>
+          <path d="M79 1L80.5 5L85 6.5L80.5 8L79 12L77.5 8L73 6.5L77.5 5Z" fill="white" opacity="0.65"/>
+        </svg>
+      </div>
+    ),
+  },
 ];
 
 const LP_TESTIMONIALS = [
@@ -4427,8 +4524,8 @@ function LandingPage({ onSignup, onSignIn }) {
           <div className="lp-features-grid" style={{ display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:18 }}>
             {LP_FEATURES.map(f=>(
               <div key={f.title} className="lp-feat-card" style={{ background:C.bg, borderRadius:20, overflow:'hidden', boxShadow:'0 2px 16px rgba(44,62,42,.06)', border:'1px solid transparent' }}>
-                <div style={{ width:'100%', height:180, overflow:'hidden' }}>
-                  <img src={f.photo} alt={f.title} style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }}/>
+                <div style={{ width:'100%', height:180 }}>
+                  {f.graphic}
                 </div>
                 <div style={{ padding:22 }}>
                 <div style={{ ...S.serif, fontSize:20, fontWeight:700, color:C.text, marginBottom:8 }}>{f.title}</div>
