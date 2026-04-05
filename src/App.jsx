@@ -4145,11 +4145,7 @@ const LP = {
         padding: 0 4px !important;
       }
       .lp-feat-card {
-        padding: 24px !important;
         border-radius: 16px !important;
-      }
-      .lp-feat-card h3 {
-        font-size: 15px !important;
       }
       .lp-feat-card p {
         font-size: 13px !important;
@@ -4231,7 +4227,7 @@ const LP = {
       .lp-features-grid {
         grid-template-columns: 1fr !important;
       }
-      .lp-feat-card  { padding: 22px 18px !important; }
+      .lp-feat-card  { border-radius: 14px !important; }
 
       /* Stats still 2×2 */
       .lp-stats-grid {
@@ -4275,19 +4271,11 @@ function Star5({ size=14, color='#C9A961' }) {
   );
 }
 
-// Feature SVG icons
-const FEAT_ICONS = {
-  book: <svg width={26} height={26} viewBox="0 0 24 24" fill="none" stroke="#5A7B4F" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>,
-  heart: <svg width={26} height={26} viewBox="0 0 24 24" fill="none" stroke="#C9A961" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>,
-  people: <svg width={26} height={26} viewBox="0 0 24 24" fill="none" stroke="#5899C4" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx={9} cy={7} r={4}/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
-  sun: <svg width={26} height={26} viewBox="0 0 24 24" fill="none" stroke="#B8860B" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx={12} cy={12} r={3}/><path d="M12 2v3m0 14v3M4.22 4.22l2.12 2.12m11.32 11.32 2.12 2.12M2 12h3m14 0h3M4.22 19.78l2.12-2.12M18.66 5.34l2.12-2.12"/></svg>,
-};
-
 const LP_FEATURES = [
-  { icon:'book', bg:'rgba(90,123,79,.12)', title:'Daily Devotionals', desc:'365 faith-wellness devotionals connecting Scripture to your physical journey. Track streaks and journal your reflections.' },
-  { icon:'heart', bg:'rgba(201,169,97,.15)', title:'Grace-Centered Tracking', desc:'Log food, water, weight, and movement without shame. Encouraging feedback that celebrates progress, not punishes setbacks.' },
-  { icon:'people', bg:'rgba(168,216,234,.25)', title:'Accountability Circles', desc:'Small groups of 5–8 women to share prayer requests, celebrate wins, and walk the journey together.', premium:true },
-  { icon:'sun', bg:'rgba(184,134,11,.15)', title:'Sage AI Coach', desc:'Your faith-integrated AI wellness coach. Ask anything — meal ideas, motivation, Scripture for hard days.' },
+  { photo:'/icons/feat-devotionals.jpg', title:'Daily Devotionals', desc:'365 faith-wellness devotionals connecting Scripture to your physical journey. Track streaks and journal your reflections.' },
+  { photo:'/icons/feat-tracking.jpg', title:'Grace-Centered Tracking', desc:'Log food, water, weight, and movement without shame. Encouraging feedback that celebrates progress, not punishes setbacks.' },
+  { photo:'/icons/feat-circles.jpg', title:'Accountability Circles', desc:'Small groups of 5–8 women to share prayer requests, celebrate wins, and walk the journey together.', premium:true },
+  { photo:'/icons/feat-sage.jpg', title:'Sage AI Coach', desc:'Your faith-integrated AI wellness coach. Ask anything — meal ideas, motivation, Scripture for hard days.' },
 ];
 
 const LP_TESTIMONIALS = [
@@ -4438,8 +4426,11 @@ function LandingPage({ onSignup, onSignIn }) {
           </p>
           <div className="lp-features-grid" style={{ display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:18 }}>
             {LP_FEATURES.map(f=>(
-              <div key={f.title} className="lp-feat-card" style={{ background:C.bg, borderRadius:20, padding:26, boxShadow:'0 2px 16px rgba(44,62,42,.06)', border:'1px solid transparent' }}>
-                <div style={{ width:50, height:50, borderRadius:14, background:f.bg, display:'flex', alignItems:'center', justifyContent:'center', marginBottom:16 }}>{FEAT_ICONS[f.icon]}</div>
+              <div key={f.title} className="lp-feat-card" style={{ background:C.bg, borderRadius:20, overflow:'hidden', boxShadow:'0 2px 16px rgba(44,62,42,.06)', border:'1px solid transparent' }}>
+                <div style={{ width:'100%', height:180, overflow:'hidden' }}>
+                  <img src={f.photo} alt={f.title} style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }}/>
+                </div>
+                <div style={{ padding:22 }}>
                 <div style={{ ...S.serif, fontSize:20, fontWeight:700, color:C.text, marginBottom:8 }}>{f.title}</div>
                 <p style={{ fontSize:13, color:C.muted, lineHeight:1.65, margin:0 }}>{f.desc}</p>
                 {f.premium && (
@@ -4447,6 +4438,7 @@ function LandingPage({ onSignup, onSignIn }) {
                     <Star5 size={11}/> Premium
                   </div>
                 )}
+                </div>
               </div>
             ))}
           </div>
