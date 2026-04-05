@@ -4103,7 +4103,7 @@ const LP = {
         text-align: center !important;
         padding: 0 20px !important;
       }
-      .lp-hero-grid > div:last-child { display: none !important; }
+      .lp-hero-grid > div:last-child { display: flex !important; justify-content: center !important; }
       .lp-hero-actions {
         flex-direction: column !important;
         gap: 12px !important;
