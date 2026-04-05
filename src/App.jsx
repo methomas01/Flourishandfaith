@@ -4402,7 +4402,7 @@ function LandingPage({ onSignup, onSignIn }) {
           {/* Right — hero image */}
           <div style={{ display:'flex', justifyContent:'center', position:'relative' }}>
             <img
-              src="/hero.jpg"
+              src="/icons/hero.jpg"
               alt="Three women studying the Bible together outdoors"
               style={{ width:'100%', maxWidth:580, borderRadius:24, boxShadow:'0 40px 90px rgba(0,0,0,.18)', objectFit:'cover' }}
             />
