@@ -4399,45 +4399,13 @@ function LandingPage({ onSignup, onSignIn }) {
             </div>
           </div>
 
-          {/* Right — phone mockup */}
+          {/* Right — hero image */}
           <div style={{ display:'flex', justifyContent:'center', position:'relative' }}>
-            {/* Floating badges */}
-            <div style={{ position:'absolute', top:30, left:-44, background:C.bg, borderRadius:16, padding:'10px 14px', boxShadow:'0 8px 28px rgba(44,62,42,.18)', display:'flex', alignItems:'center', gap:10, animation:'lp-float1 3.5s ease-in-out infinite', zIndex:2 }}>
-              <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="#E85D04" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>
-              <div><div style={{ fontSize:13, fontWeight:700, color:C.text }}>21-Day Streak</div><div style={{ fontSize:10, color:C.muted }}>Devotional Streak</div></div>
-            </div>
-
-            {/* Phone */}
-            <div style={{ width:270, background:'#1A1A1A', borderRadius:42, padding:10, boxShadow:'0 40px 90px rgba(0,0,0,.3)', position:'relative', zIndex:1 }}>
-              <div style={{ background:C.bg, borderRadius:34, overflow:'hidden' }}>
-                <div style={{ width:100, height:26, background:'#1A1A1A', borderRadius:'0 0 16px 16px', margin:'0 auto' }}/>
-                {/* Dev card */}
-                <div style={{ background:`linear-gradient(140deg, ${C.primary}, #3B6331)`, margin:10, borderRadius:16, padding:14, color:'#fff' }}>
-                  <div style={{ fontSize:9, opacity:.75, marginBottom:4 }}>Today · March 21</div>
-                  <div style={{ ...S.serif, fontSize:17, fontWeight:700, marginBottom:4 }}>Your Body is a Temple</div>
-                  <div style={{ fontSize:9, opacity:.8, fontStyle:'italic' }}>📖 1 Corinthians 6:19-20</div>
-                </div>
-                {/* Tiles */}
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:7, margin:'0 10px 10px' }}>
-                  {[['🍴','Food Log','1,440 cal'],['💧','Water','6/8 cups'],['⚖️','Weight','163 lbs'],['🏃','Movement','3/5 days']].map(([icon,label,val])=>(
-                    <div key={label} style={{ background:C.bgAlt, borderRadius:11, padding:9 }}>
-                      <div style={{ fontSize:16, marginBottom:4 }}>{icon}</div>
-                      <div style={{ fontSize:9, fontWeight:600, color:C.text }}>{label}</div>
-                      <div style={{ fontSize:8, color:C.muted, marginTop:1 }}>{val}</div>
-                    </div>
-                  ))}
-                </div>
-                {/* Streak bar */}
-                <div style={{ background:C.accent, margin:'0 10px 10px', borderRadius:10, padding:'8px 12px', display:'flex', alignItems:'center', gap:6, fontSize:10, fontWeight:700, color:C.text }}>
-                  <span>✨</span><span>7-day devotional streak! Keep going!</span>
-                </div>
-              </div>
-            </div>
-
-            <div style={{ position:'absolute', bottom:70, right:-40, background:C.bg, borderRadius:16, padding:'10px 14px', boxShadow:'0 8px 28px rgba(44,62,42,.18)', display:'flex', alignItems:'center', gap:10, animation:'lp-float2 4s ease-in-out infinite', zIndex:2 }}>
-              <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="#5A7B4F" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-              <div><div style={{ fontSize:13, fontWeight:700, color:C.text }}>Sarah is praying for you</div><div style={{ fontSize:10, color:C.muted }}>Circle Accountability</div></div>
-            </div>
+            <img
+              src="/hero.jpg"
+              alt="Three women studying the Bible together outdoors"
+              style={{ width:'100%', maxWidth:580, borderRadius:24, boxShadow:'0 40px 90px rgba(0,0,0,.18)', objectFit:'cover' }}
+            />
           </div>
         </div>
       </section>
