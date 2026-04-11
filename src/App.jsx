@@ -3791,14 +3791,13 @@ function ProfileTab({ user, onSignOut, onUpdateUser, appSettings, onUpdateSettin
 
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 function MainApp({ user: initialUser, onSignOut, onRootUpdateUser }) {
-  // Prefer savedProfile.plan — it's the source of truth for app-specific upgrades.
-  // (initialUser.plan is always 'free' from Supabase auth metadata.)
+  // Compute user on every render from props + localStorage.
+  // savedProfile.plan is the source of truth for premium upgrades;
+  // initialUser carries name/email/supabaseId from the auth session.
   const savedProfile = loadUserProfile();
-  const mergedUser = savedProfile
+  const user = savedProfile
     ? { ...initialUser, ...savedProfile, plan: savedProfile.plan || initialUser.plan || 'free' }
     : initialUser;
-
-  const [user, setUser] = useState(mergedUser);
 
   // App-wide settings (calorie goal, water goal, weight unit) — persisted
   const defaultSettings = { calorieGoal: 1800, waterGoal: 8, weightUnit: 'lbs' };
@@ -3909,14 +3908,12 @@ function MainApp({ user: initialUser, onSignOut, onRootUpdateUser }) {
 
   const handleUpdateUser = updates => {
     const next = { ...user, ...updates };
-    setUser(next);
     saveUserProfile(next);
     onRootUpdateUser?.(next);
   };
 
   const handleUpgrade = () => {
     const upgraded = { ...user, plan: 'premium' };
-    setUser(upgraded);
     saveUserProfile(upgraded);
     onRootUpdateUser?.(upgraded);
   };
