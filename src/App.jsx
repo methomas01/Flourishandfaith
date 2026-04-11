@@ -2411,6 +2411,7 @@ function MealPlanner({ user, onUpgrade, setFoodItems }) {
   const [favorites, setFavorites] = useState(() => {
     try { return new Set(JSON.parse(localStorage.getItem('ff_recipe_favs') || '[]')); } catch { return new Set(); }
   });
+  const [showFavsOnly, setShowFavsOnly] = useState(false);
 
   const toggleFav = (key) => {
     setFavorites(prev => {
@@ -2518,8 +2519,6 @@ function MealPlanner({ user, onUpgrade, setFoodItems }) {
   }
 
   // ── Plan overview ──
-  const [showFavsOnly, setShowFavsOnly] = useState(false);
-
   // If showing favs, find all meals that are favorited across all days
   const favoriteMeals = [];
   if (showFavsOnly) {
@@ -4045,6 +4044,60 @@ function MainApp({ user: initialUser, onSignOut }) {
   );
 }
 
+// ─── RESET PASSWORD ───────────────────────────────────────────────────────────
+function ResetPasswordScreen({ onDone }) {
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [done, setDone] = useState(false);
+
+  const handleUpdate = async () => {
+    if (password.length < 8) { setError('Password must be at least 8 characters'); return; }
+    if (password !== confirm) { setError('Passwords do not match'); return; }
+    setLoading(true);
+    setError('');
+    try {
+      const { error: err } = await supabase.auth.updateUser({ password });
+      if (err) throw err;
+      setDone(true);
+      setTimeout(onDone, 1800);
+    } catch(e) {
+      setError(e.message || 'Failed to update password. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (done) return (
+    <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:C.bg }}>
+      <div style={{ textAlign:'center', padding:40 }}>
+        <div style={{ fontSize:48, marginBottom:14 }}>✅</div>
+        <div className="serif" style={{ fontSize:24, fontWeight:700, color:C.text }}>Password Updated!</div>
+        <div style={{ fontSize:14, color:C.muted, marginTop:8 }}>Signing you in…</div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ minHeight:'100vh', background:C.bg, display:'flex', flexDirection:'column', alignItems:'center', padding:'60px 24px' }}>
+      <div style={{ textAlign:'center', marginBottom:32 }}>
+        <div style={{ fontSize:36, marginBottom:10 }}>🔐</div>
+        <div className="serif" style={{ fontSize:26, fontWeight:700, color:C.text }}>Set New Password</div>
+        <div style={{ fontSize:14, color:C.muted, marginTop:6, maxWidth:320 }}>Choose a strong password for your account.</div>
+      </div>
+      <div style={{ width:'100%', maxWidth:400, display:'flex', flexDirection:'column', gap:14 }}>
+        <Input label="New Password" type="password" placeholder="At least 8 characters" value={password} onChange={e=>setPassword(e.target.value)}/>
+        <Input label="Confirm Password" type="password" placeholder="Repeat your password" value={confirm} onChange={e=>setConfirm(e.target.value)}/>
+        {error && <div style={{ background:'#FFEBEE', border:'1px solid #FFCDD2', borderRadius:10, padding:'10px 14px', fontSize:13, color:'#C62828' }}>⚠ {error}</div>}
+        <Btn full onClick={handleUpdate} style={{ opacity: loading ? 0.7 : 1 }}>
+          {loading ? 'Updating…' : 'Update Password'}
+        </Btn>
+      </div>
+    </div>
+  );
+}
+
 // ─── LANDING PAGE ─────────────────────────────────────────────────────────────
 
 const LP = {
@@ -4838,6 +4891,7 @@ export default function FlourishAndFaith() {
   const [pwaPrompt, setPwaPrompt] = useState(null);
   const [showPwaBanner, setShowPwaBanner] = useState(false);
   const isNewSignup = React.useRef(false);
+  const isPasswordRecovery = React.useRef(false);
 
   // Capture the PWA install event (Android Chrome only)
   useEffect(() => {
@@ -4886,7 +4940,7 @@ export default function FlourishAndFaith() {
     // Preserve local UI preferences only if it's the same user
     const local = loadUserProfile();
     if (local?.email === profile.email) {
-      const final = { ...profile, covenant: local.covenant || '', avatarColor: local.avatarColor, avatarPhoto: local.avatarPhoto };
+      const final = { ...profile, plan: local.plan || 'free', covenant: local.covenant || '', avatarColor: local.avatarColor, avatarPhoto: local.avatarPhoto };
       setUser(final);
       saveUserProfile(final);
     } else {
@@ -4908,10 +4962,14 @@ export default function FlourishAndFaith() {
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session?.user) {
+      if (event === 'PASSWORD_RECOVERY') {
+        isPasswordRecovery.current = true;
+        setScreen('reset-password');
+      } else if (event === 'SIGNED_IN' && session?.user && !isPasswordRecovery.current) {
         await restoreSupabaseSession(session.user, isNewSignup.current);
         isNewSignup.current = false;
       } else if (event === 'SIGNED_OUT') {
+        isPasswordRecovery.current = false;
         setUser(null);
         setScreen('landing');
       }
@@ -5009,16 +5067,24 @@ export default function FlourishAndFaith() {
     setScreen('app');
   };
 
+  const handleResetPasswordDone = async () => {
+    isPasswordRecovery.current = false;
+    const { data: { user: supaUser } } = await supabase.auth.getUser();
+    if (supaUser) restoreSupabaseSession(supaUser, false);
+    else setScreen('auth');
+  };
+
   const renderScreen = () => {
-    if(screen==='landing')      return <LandingPage onSignup={()=>setScreen('onboarding')} onSignIn={()=>setScreen('auth')}/>;
-    if(screen==='splash')       return <SplashScreen onDone={()=>setScreen('onboarding')}/>;
-    if(screen==='onboarding')   return <OnboardingScreen onDone={()=>setScreen('auth')}/>;
-    if(screen==='auth')         return <AuthScreen onDone={handleAuth}/>;
-    if(screen==='goals')        return <GoalSettingScreen onNext={()=>setScreen('personalize')}/>;
-    if(screen==='personalize')  return <PersonalizationScreen onNext={()=>setScreen('covenant')}/>;
-    if(screen==='covenant')     return <CovenantScreen onNext={()=>setScreen('subscription')} setUserCovenant={setCovenant}/>;
-    if(screen==='subscription') return <SubscriptionScreen onDone={handleSub}/>;
-    if(screen==='app')          return <MainApp user={user} onSignOut={handleSignOut}/>;
+    if(screen==='landing')        return <LandingPage onSignup={()=>setScreen('onboarding')} onSignIn={()=>setScreen('auth')}/>;
+    if(screen==='splash')         return <SplashScreen onDone={()=>setScreen('onboarding')}/>;
+    if(screen==='onboarding')     return <OnboardingScreen onDone={()=>setScreen('auth')}/>;
+    if(screen==='auth')           return <AuthScreen onDone={handleAuth}/>;
+    if(screen==='goals')          return <GoalSettingScreen onNext={()=>setScreen('personalize')}/>;
+    if(screen==='personalize')    return <PersonalizationScreen onNext={()=>setScreen('covenant')}/>;
+    if(screen==='covenant')       return <CovenantScreen onNext={()=>setScreen('subscription')} setUserCovenant={setCovenant}/>;
+    if(screen==='subscription')   return <SubscriptionScreen onDone={handleSub}/>;
+    if(screen==='reset-password') return <ResetPasswordScreen onDone={handleResetPasswordDone}/>;
+    if(screen==='app')            return <MainApp user={user} onSignOut={handleSignOut}/>;
     return null;
   };
 
