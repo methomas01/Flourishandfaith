@@ -3544,7 +3544,7 @@ function ProfileTab({ user, onSignOut, onUpdateUser, appSettings, onUpdateSettin
           <div style={{ fontWeight:600, fontSize:15, color:C.text, marginBottom:4 }}>Upgrade to Premium</div>
           <div style={{ fontSize:13, color:C.muted, marginBottom:14, lineHeight:1.6 }}>Unlock macro tracking, meal planner, accountability circles, and unlimited Sage AI.</div>
           <div className="serif" style={{ fontSize:32, fontWeight:700, color:C.primary, marginBottom:14 }}>$9.99<span style={{ fontSize:14, fontWeight:400, color:C.muted }}>/mo</span></div>
-          <Btn full onClick={()=>{ const u={...user,plan:'premium'}; onUpdateUser(u); saveUserProfile(u); }}>Start 7-Day Free Trial ✨</Btn>
+          <Btn full onClick={()=>{ onUpdateUser({ plan: 'premium' }); }}>Start 7-Day Free Trial ✨</Btn>
         </Card>
       )}
     </div>
@@ -3790,11 +3790,12 @@ function ProfileTab({ user, onSignOut, onUpdateUser, appSettings, onUpdateSettin
 
 
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
-function MainApp({ user: initialUser, onSignOut }) {
-  // Merge saved profile over the auth-provided user (name, email survive re-login)
+function MainApp({ user: initialUser, onSignOut, onRootUpdateUser }) {
+  // Prefer savedProfile.plan — it's the source of truth for app-specific upgrades.
+  // (initialUser.plan is always 'free' from Supabase auth metadata.)
   const savedProfile = loadUserProfile();
   const mergedUser = savedProfile
-    ? { ...initialUser, ...savedProfile, plan: initialUser.plan || savedProfile.plan || 'free' }
+    ? { ...initialUser, ...savedProfile, plan: savedProfile.plan || initialUser.plan || 'free' }
     : initialUser;
 
   const [user, setUser] = useState(mergedUser);
@@ -3910,12 +3911,14 @@ function MainApp({ user: initialUser, onSignOut }) {
     const next = { ...user, ...updates };
     setUser(next);
     saveUserProfile(next);
+    onRootUpdateUser?.(next);
   };
 
   const handleUpgrade = () => {
     const upgraded = { ...user, plan: 'premium' };
     setUser(upgraded);
     saveUserProfile(upgraded);
+    onRootUpdateUser?.(upgraded);
   };
 
   const handleUpdateSettings = updates => {
@@ -5084,7 +5087,7 @@ export default function FlourishAndFaith() {
     if(screen==='covenant')       return <CovenantScreen onNext={()=>setScreen('subscription')} setUserCovenant={setCovenant}/>;
     if(screen==='subscription')   return <SubscriptionScreen onDone={handleSub}/>;
     if(screen==='reset-password') return <ResetPasswordScreen onDone={handleResetPasswordDone}/>;
-    if(screen==='app')            return <MainApp user={user} onSignOut={handleSignOut}/>;
+    if(screen==='app')            return <MainApp user={user} onSignOut={handleSignOut} onRootUpdateUser={setUser}/>;
     return null;
   };
 
