@@ -702,7 +702,9 @@ function AuthScreen({ onDone }) {
             <Input label="Email Address" type="email" placeholder="you@example.com" value={forgotEmail} onChange={e=>setForgotEmail(e.target.value)}/>
             <Btn full onClick={async ()=>{
               if (isValidEmail(forgotEmail)) {
-                if (supabase) await supabase.auth.resetPasswordForEmail(forgotEmail);
+                if (supabase) await supabase.auth.resetPasswordForEmail(forgotEmail, {
+                  redirectTo: window.location.origin,
+                });
                 setForgotSent(true);
               }
             }} style={{ opacity: isValidEmail(forgotEmail)?1:0.6 }}>
@@ -2398,7 +2400,7 @@ const MEAL_PLANS = [
   },
 ];
 
-function MealPlanner({ user, onUpgrade, setFoodItems }) {
+function MealPlanner({ user, onUpgrade, setFoodItems, onBack }) {
   const isPremium = user?.plan === 'premium';
   const [selectedDay, setSelectedDay] = useState((() => {
     const d = new Date().getDay(); // 0=Sun,1=Mon,...,6=Sat
@@ -2412,6 +2414,12 @@ function MealPlanner({ user, onUpgrade, setFoodItems }) {
     try { return new Set(JSON.parse(localStorage.getItem('ff_recipe_favs') || '[]')); } catch { return new Set(); }
   });
   const [showFavsOnly, setShowFavsOnly] = useState(false);
+
+  // Scroll to top of main content whenever switching into/out of recipe view
+  useEffect(() => {
+    const scrollEl = document.querySelector('.scroll');
+    if (scrollEl) scrollEl.scrollTop = 0;
+  }, [recipeView]);
 
   const toggleFav = (key) => {
     setFavorites(prev => {
@@ -2532,6 +2540,7 @@ function MealPlanner({ user, onUpgrade, setFoodItems }) {
   return (
     <div>
       <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:18 }}>
+        {onBack && <BackBtn onClick={onBack}/>}
         <div className="serif" style={{ fontSize:24, fontWeight:700 }}>Meal Planner</div>
         <div style={{ display:'inline-flex', alignItems:'center', gap:4, background:`${C.accent}22`, borderRadius:99, padding:'3px 10px', fontSize:10, fontWeight:700, color:C.accent, marginLeft:'auto' }}>✨ Premium</div>
       </div>
@@ -2943,7 +2952,7 @@ function TrackTab({ initView='overview', foodItems, setFoodItems, waterCups, set
   if(view==='water')    return <WaterTracker     onBack={()=>setView('overview')} cups={waterCups}        setCups={setWaterCups}      waterGoal={waterGoal}/>;
   if(view==='weight')   return <WeightLogger     onBack={()=>setView('overview')} entries={weightEntries} setEntries={setWeightEntries} weightUnit={weightUnit} appSettings={appSettings}/>;
   if(view==='movement') return <MovementLogger   onBack={()=>setView('overview')} entries={moveItems}     setEntries={setMoveItems} weightEntries={weightEntries}/>;
-  if(view==='meals')    return <div><div style={{display:'flex',alignItems:'center',gap:12,marginBottom:18}}><BackBtn onClick={()=>setView('overview')}/></div><MealPlanner user={user} onUpgrade={onUpgrade} setFoodItems={setFoodItems}/></div>;
+  if(view==='meals')    return <MealPlanner user={user} onUpgrade={onUpgrade} setFoodItems={setFoodItems} onBack={()=>setView('overview')}/>;
   if(view==='programs') return <div><div style={{display:'flex',alignItems:'center',gap:12,marginBottom:18}}><BackBtn onClick={()=>setView('overview')}/></div><GuidedPrograms user={user} onUpgrade={onUpgrade}/></div>;
 
   const isPremium = user?.plan === 'premium';
