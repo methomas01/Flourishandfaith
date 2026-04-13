@@ -2411,6 +2411,7 @@ function MealPlanner({ user, onUpgrade, setFoodItems }) {
   const [favorites, setFavorites] = useState(() => {
     try { return new Set(JSON.parse(localStorage.getItem('ff_recipe_favs') || '[]')); } catch { return new Set(); }
   });
+  const [showFavsOnly, setShowFavsOnly] = useState(false);
 
   const toggleFav = (key) => {
     setFavorites(prev => {
@@ -2518,8 +2519,6 @@ function MealPlanner({ user, onUpgrade, setFoodItems }) {
   }
 
   // ── Plan overview ──
-  const [showFavsOnly, setShowFavsOnly] = useState(false);
-
   // If showing favs, find all meals that are favorited across all days
   const favoriteMeals = [];
   if (showFavsOnly) {
@@ -3545,7 +3544,7 @@ function ProfileTab({ user, onSignOut, onUpdateUser, appSettings, onUpdateSettin
           <div style={{ fontWeight:600, fontSize:15, color:C.text, marginBottom:4 }}>Upgrade to Premium</div>
           <div style={{ fontSize:13, color:C.muted, marginBottom:14, lineHeight:1.6 }}>Unlock macro tracking, meal planner, accountability circles, and unlimited Sage AI.</div>
           <div className="serif" style={{ fontSize:32, fontWeight:700, color:C.primary, marginBottom:14 }}>$9.99<span style={{ fontSize:14, fontWeight:400, color:C.muted }}>/mo</span></div>
-          <Btn full onClick={()=>{ const u={...user,plan:'premium'}; onUpdateUser(u); saveUserProfile(u); }}>Start 7-Day Free Trial ✨</Btn>
+          <Btn full onClick={()=>{ onUpdateUser({ plan: 'premium' }); }}>Start 7-Day Free Trial ✨</Btn>
         </Card>
       )}
     </div>
@@ -3791,14 +3790,14 @@ function ProfileTab({ user, onSignOut, onUpdateUser, appSettings, onUpdateSettin
 
 
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
-function MainApp({ user: initialUser, onSignOut }) {
-  // Merge saved profile over the auth-provided user (name, email survive re-login)
+function MainApp({ user: initialUser, onSignOut, onRootUpdateUser }) {
+  // Compute user on every render from props + localStorage.
+  // savedProfile.plan is the source of truth for premium upgrades;
+  // initialUser carries name/email/supabaseId from the auth session.
   const savedProfile = loadUserProfile();
-  const mergedUser = savedProfile
-    ? { ...initialUser, ...savedProfile, plan: initialUser.plan || savedProfile.plan || 'free' }
+  const user = savedProfile
+    ? { ...initialUser, ...savedProfile, plan: savedProfile.plan || initialUser.plan || 'free' }
     : initialUser;
-
-  const [user, setUser] = useState(mergedUser);
 
   // App-wide settings (calorie goal, water goal, weight unit) — persisted
   const defaultSettings = { calorieGoal: 1800, waterGoal: 8, weightUnit: 'lbs' };
@@ -3909,14 +3908,14 @@ function MainApp({ user: initialUser, onSignOut }) {
 
   const handleUpdateUser = updates => {
     const next = { ...user, ...updates };
-    setUser(next);
     saveUserProfile(next);
+    onRootUpdateUser?.(next);
   };
 
   const handleUpgrade = () => {
     const upgraded = { ...user, plan: 'premium' };
-    setUser(upgraded);
     saveUserProfile(upgraded);
+    onRootUpdateUser?.(upgraded);
   };
 
   const handleUpdateSettings = updates => {
@@ -4045,6 +4044,60 @@ function MainApp({ user: initialUser, onSignOut }) {
   );
 }
 
+// ─── RESET PASSWORD ───────────────────────────────────────────────────────────
+function ResetPasswordScreen({ onDone }) {
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [done, setDone] = useState(false);
+
+  const handleUpdate = async () => {
+    if (password.length < 8) { setError('Password must be at least 8 characters'); return; }
+    if (password !== confirm) { setError('Passwords do not match'); return; }
+    setLoading(true);
+    setError('');
+    try {
+      const { error: err } = await supabase.auth.updateUser({ password });
+      if (err) throw err;
+      setDone(true);
+      setTimeout(onDone, 1800);
+    } catch(e) {
+      setError(e.message || 'Failed to update password. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (done) return (
+    <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:C.bg }}>
+      <div style={{ textAlign:'center', padding:40 }}>
+        <div style={{ fontSize:48, marginBottom:14 }}>✅</div>
+        <div className="serif" style={{ fontSize:24, fontWeight:700, color:C.text }}>Password Updated!</div>
+        <div style={{ fontSize:14, color:C.muted, marginTop:8 }}>Signing you in…</div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ minHeight:'100vh', background:C.bg, display:'flex', flexDirection:'column', alignItems:'center', padding:'60px 24px' }}>
+      <div style={{ textAlign:'center', marginBottom:32 }}>
+        <div style={{ fontSize:36, marginBottom:10 }}>🔐</div>
+        <div className="serif" style={{ fontSize:26, fontWeight:700, color:C.text }}>Set New Password</div>
+        <div style={{ fontSize:14, color:C.muted, marginTop:6, maxWidth:320 }}>Choose a strong password for your account.</div>
+      </div>
+      <div style={{ width:'100%', maxWidth:400, display:'flex', flexDirection:'column', gap:14 }}>
+        <Input label="New Password" type="password" placeholder="At least 8 characters" value={password} onChange={e=>setPassword(e.target.value)}/>
+        <Input label="Confirm Password" type="password" placeholder="Repeat your password" value={confirm} onChange={e=>setConfirm(e.target.value)}/>
+        {error && <div style={{ background:'#FFEBEE', border:'1px solid #FFCDD2', borderRadius:10, padding:'10px 14px', fontSize:13, color:'#C62828' }}>⚠ {error}</div>}
+        <Btn full onClick={handleUpdate} style={{ opacity: loading ? 0.7 : 1 }}>
+          {loading ? 'Updating…' : 'Update Password'}
+        </Btn>
+      </div>
+    </div>
+  );
+}
+
 // ─── LANDING PAGE ─────────────────────────────────────────────────────────────
 
 const LP = {
@@ -4145,11 +4198,7 @@ const LP = {
         padding: 0 4px !important;
       }
       .lp-feat-card {
-        padding: 24px !important;
         border-radius: 16px !important;
-      }
-      .lp-feat-card h3 {
-        font-size: 15px !important;
       }
       .lp-feat-card p {
         font-size: 13px !important;
@@ -4231,7 +4280,7 @@ const LP = {
       .lp-features-grid {
         grid-template-columns: 1fr !important;
       }
-      .lp-feat-card  { padding: 22px 18px !important; }
+      .lp-feat-card  { border-radius: 14px !important; }
 
       /* Stats still 2×2 */
       .lp-stats-grid {
@@ -4275,19 +4324,108 @@ function Star5({ size=14, color='#C9A961' }) {
   );
 }
 
-// Feature SVG icons
-const FEAT_ICONS = {
-  book: <svg width={26} height={26} viewBox="0 0 24 24" fill="none" stroke="#5A7B4F" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>,
-  heart: <svg width={26} height={26} viewBox="0 0 24 24" fill="none" stroke="#C9A961" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>,
-  people: <svg width={26} height={26} viewBox="0 0 24 24" fill="none" stroke="#5899C4" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx={9} cy={7} r={4}/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
-  sun: <svg width={26} height={26} viewBox="0 0 24 24" fill="none" stroke="#B8860B" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx={12} cy={12} r={3}/><path d="M12 2v3m0 14v3M4.22 4.22l2.12 2.12m11.32 11.32 2.12 2.12M2 12h3m14 0h3M4.22 19.78l2.12-2.12M18.66 5.34l2.12-2.12"/></svg>,
-};
-
 const LP_FEATURES = [
-  { icon:'book', bg:'rgba(90,123,79,.12)', title:'Daily Devotionals', desc:'365 faith-wellness devotionals connecting Scripture to your physical journey. Track streaks and journal your reflections.' },
-  { icon:'heart', bg:'rgba(201,169,97,.15)', title:'Grace-Centered Tracking', desc:'Log food, water, weight, and movement without shame. Encouraging feedback that celebrates progress, not punishes setbacks.' },
-  { icon:'people', bg:'rgba(168,216,234,.25)', title:'Accountability Circles', desc:'Small groups of 5–8 women to share prayer requests, celebrate wins, and walk the journey together.', premium:true },
-  { icon:'sun', bg:'rgba(184,134,11,.15)', title:'Sage AI Coach', desc:'Your faith-integrated AI wellness coach. Ask anything — meal ideas, motivation, Scripture for hard days.' },
+  {
+    title:'Daily Devotionals',
+    desc:'365 faith-wellness devotionals connecting Scripture to your physical journey. Track streaks and journal your reflections.',
+    graphic:(
+      <div style={{ width:'100%', height:'100%', background:'linear-gradient(135deg,#d6eacc 0%,#a8cfa0 100%)', display:'flex', alignItems:'center', justifyContent:'center', position:'relative', overflow:'hidden' }}>
+        <div style={{ position:'absolute', width:110, height:110, borderRadius:'50%', background:'rgba(255,255,255,0.18)', top:-30, right:-25 }}/>
+        <div style={{ position:'absolute', width:55, height:55, borderRadius:'50%', background:'rgba(255,255,255,0.12)', bottom:8, left:12 }}/>
+        <svg width="96" height="80" viewBox="0 0 96 80" fill="none">
+          {/* Left page */}
+          <rect x="4" y="16" width="40" height="50" rx="4" fill="white" opacity="0.92"/>
+          {/* Right page */}
+          <rect x="52" y="16" width="40" height="50" rx="4" fill="white" opacity="0.92"/>
+          {/* Spine */}
+          <rect x="43" y="13" width="10" height="56" rx="3" fill="#5A7B4F" opacity="0.55"/>
+          {/* Text lines left */}
+          <line x1="11" y1="29" x2="38" y2="29" stroke="#5A7B4F" strokeWidth="2" strokeOpacity="0.35" strokeLinecap="round"/>
+          <line x1="11" y1="37" x2="38" y2="37" stroke="#5A7B4F" strokeWidth="2" strokeOpacity="0.35" strokeLinecap="round"/>
+          <line x1="11" y1="45" x2="38" y2="45" stroke="#5A7B4F" strokeWidth="2" strokeOpacity="0.35" strokeLinecap="round"/>
+          <line x1="11" y1="53" x2="28" y2="53" stroke="#5A7B4F" strokeWidth="2" strokeOpacity="0.35" strokeLinecap="round"/>
+          {/* Text lines right */}
+          <line x1="59" y1="29" x2="86" y2="29" stroke="#5A7B4F" strokeWidth="2" strokeOpacity="0.35" strokeLinecap="round"/>
+          <line x1="59" y1="37" x2="86" y2="37" stroke="#5A7B4F" strokeWidth="2" strokeOpacity="0.35" strokeLinecap="round"/>
+          <line x1="59" y1="45" x2="86" y2="45" stroke="#5A7B4F" strokeWidth="2" strokeOpacity="0.35" strokeLinecap="round"/>
+          <line x1="59" y1="53" x2="74" y2="53" stroke="#5A7B4F" strokeWidth="2" strokeOpacity="0.35" strokeLinecap="round"/>
+          {/* Cross above spine */}
+          <rect x="45" y="1" width="6" height="18" rx="3" fill="#5A7B4F" opacity="0.75"/>
+          <rect x="39" y="6" width="18" height="6" rx="3" fill="#5A7B4F" opacity="0.75"/>
+        </svg>
+      </div>
+    ),
+  },
+  {
+    title:'Grace-Centered Tracking',
+    desc:'Log food, water, weight, and movement without shame. Encouraging feedback that celebrates progress, not punishes setbacks.',
+    graphic:(
+      <div style={{ width:'100%', height:'100%', background:'linear-gradient(135deg,#fbf0d9 0%,#f0d58a 100%)', display:'flex', alignItems:'center', justifyContent:'center', position:'relative', overflow:'hidden' }}>
+        <div style={{ position:'absolute', width:90, height:90, borderRadius:'50%', background:'rgba(255,255,255,0.25)', top:-20, left:-20 }}/>
+        <svg width="104" height="80" viewBox="0 0 104 80" fill="none">
+          {/* Heart */}
+          <path d="M52 70C52 70 14 47 14 25C14 14.5 22.5 7 32 7C38.5 7 45 11 52 19C59 11 65.5 7 72 7C81.5 7 90 14.5 90 25C90 47 52 70 52 70Z" fill="#C9A961" opacity="0.88"/>
+          {/* Checkmark */}
+          <path d="M37 37L47 48L68 27" stroke="white" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round"/>
+          {/* Water drop */}
+          <path d="M95 42C95 42 89 50 89 55C89 58.3 91.7 61 95 61C98.3 61 101 58.3 101 55C101 50 95 42 95 42Z" fill="#5899C4" opacity="0.7"/>
+          {/* Apple */}
+          <circle cx="10" cy="52" r="9" fill="#7FA876" opacity="0.75"/>
+          <path d="M10 43C10 43 13.5 39.5 17 41" stroke="#5A7B4F" strokeWidth="1.8" strokeLinecap="round" opacity="0.75"/>
+        </svg>
+      </div>
+    ),
+  },
+  {
+    title:'Accountability Circles',
+    desc:'Small groups of 5–8 women to share prayer requests, celebrate wins, and walk the journey together.',
+    premium:true,
+    graphic:(
+      <div style={{ width:'100%', height:'100%', background:'linear-gradient(135deg,#d4e8f6 0%,#96c2de 100%)', display:'flex', alignItems:'center', justifyContent:'center', position:'relative', overflow:'hidden' }}>
+        <div style={{ position:'absolute', width:100, height:100, borderRadius:'50%', background:'rgba(255,255,255,0.18)', bottom:-28, right:-18 }}/>
+        <svg width="108" height="76" viewBox="0 0 108 76" fill="none">
+          {/* Left figure */}
+          <circle cx="25" cy="22" r="10" fill="white" opacity="0.88"/>
+          <path d="M7 62C7 49 15 42 25 42C35 42 43 49 43 62" fill="white" opacity="0.88"/>
+          {/* Middle figure (taller) */}
+          <circle cx="54" cy="19" r="12" fill="#3A6B9A" opacity="0.82"/>
+          <path d="M34 62C34 47 43 39 54 39C65 39 74 47 74 62" fill="#3A6B9A" opacity="0.82"/>
+          {/* Right figure */}
+          <circle cx="83" cy="22" r="10" fill="white" opacity="0.88"/>
+          <path d="M65 62C65 49 73 42 83 42C93 42 101 49 101 62" fill="white" opacity="0.88"/>
+          {/* Heart between them */}
+          <path d="M54 32C54 32 49 27 49 24C49 21.8 50.8 20 53 20C53.7 20 54.3 20.3 54 20.3C53.7 20.3 54.3 20 55 20C57.2 20 59 21.8 59 24C59 27 54 32 54 32Z" fill="#C9A961" opacity="0.9"/>
+        </svg>
+      </div>
+    ),
+  },
+  {
+    title:'Sage AI Coach',
+    desc:'Your faith-integrated AI wellness coach. Ask anything — meal ideas, motivation, Scripture for hard days.',
+    graphic:(
+      <div style={{ width:'100%', height:'100%', background:'linear-gradient(135deg,#2c4a28 0%,#4a7a40 100%)', display:'flex', alignItems:'center', justifyContent:'center', position:'relative', overflow:'hidden' }}>
+        <div style={{ position:'absolute', width:80, height:80, borderRadius:'50%', background:'rgba(255,255,255,0.07)', top:-12, left:-12 }}/>
+        <div style={{ position:'absolute', width:50, height:50, borderRadius:'50%', background:'rgba(255,255,255,0.05)', bottom:-8, right:36 }}/>
+        <svg width="104" height="76" viewBox="0 0 104 76" fill="none">
+          {/* Top chat bubble */}
+          <rect x="6" y="4" width="62" height="34" rx="14" fill="white" opacity="0.92"/>
+          <path d="M18 38L11 50L30 38Z" fill="white" opacity="0.92"/>
+          {/* Typing dots */}
+          <circle cx="24" cy="21" r="4" fill="#5A7B4F"/>
+          <circle cx="37" cy="21" r="4" fill="#5A7B4F"/>
+          <circle cx="50" cy="21" r="4" fill="#5A7B4F"/>
+          {/* Bottom bubble (reply) */}
+          <rect x="36" y="42" width="62" height="28" rx="12" fill="#C9A961" opacity="0.88"/>
+          <path d="M82 70L90 78L72 70Z" fill="#C9A961" opacity="0.88"/>
+          {/* Leaf in reply bubble */}
+          <path d="M55 52C55 52 60 48 66 52C62 56 56 58 52 56C52 56 51 54 55 52Z" fill="white" opacity="0.75"/>
+          {/* Sparkle top right */}
+          <path d="M91 6L93 13L100 15L93 17L91 24L89 17L82 15L89 13Z" fill="#C9A961" opacity="0.9"/>
+          <path d="M79 1L80.5 5L85 6.5L80.5 8L79 12L77.5 8L73 6.5L77.5 5Z" fill="white" opacity="0.65"/>
+        </svg>
+      </div>
+    ),
+  },
 ];
 
 const LP_TESTIMONIALS = [
@@ -4438,8 +4576,11 @@ function LandingPage({ onSignup, onSignIn }) {
           </p>
           <div className="lp-features-grid" style={{ display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:18 }}>
             {LP_FEATURES.map(f=>(
-              <div key={f.title} className="lp-feat-card" style={{ background:C.bg, borderRadius:20, padding:26, boxShadow:'0 2px 16px rgba(44,62,42,.06)', border:'1px solid transparent' }}>
-                <div style={{ width:50, height:50, borderRadius:14, background:f.bg, display:'flex', alignItems:'center', justifyContent:'center', marginBottom:16 }}>{FEAT_ICONS[f.icon]}</div>
+              <div key={f.title} className="lp-feat-card" style={{ background:C.bg, borderRadius:20, overflow:'hidden', boxShadow:'0 2px 16px rgba(44,62,42,.06)', border:'1px solid transparent' }}>
+                <div style={{ width:'100%', height:180 }}>
+                  {f.graphic}
+                </div>
+                <div style={{ padding:22 }}>
                 <div style={{ ...S.serif, fontSize:20, fontWeight:700, color:C.text, marginBottom:8 }}>{f.title}</div>
                 <p style={{ fontSize:13, color:C.muted, lineHeight:1.65, margin:0 }}>{f.desc}</p>
                 {f.premium && (
@@ -4447,6 +4588,7 @@ function LandingPage({ onSignup, onSignIn }) {
                     <Star5 size={11}/> Premium
                   </div>
                 )}
+                </div>
               </div>
             ))}
           </div>
@@ -4749,6 +4891,7 @@ export default function FlourishAndFaith() {
   const [pwaPrompt, setPwaPrompt] = useState(null);
   const [showPwaBanner, setShowPwaBanner] = useState(false);
   const isNewSignup = React.useRef(false);
+  const isPasswordRecovery = React.useRef(false);
 
   // Capture the PWA install event (Android Chrome only)
   useEffect(() => {
@@ -4797,7 +4940,7 @@ export default function FlourishAndFaith() {
     // Preserve local UI preferences only if it's the same user
     const local = loadUserProfile();
     if (local?.email === profile.email) {
-      const final = { ...profile, covenant: local.covenant || '', avatarColor: local.avatarColor, avatarPhoto: local.avatarPhoto };
+      const final = { ...profile, plan: local.plan || 'free', covenant: local.covenant || '', avatarColor: local.avatarColor, avatarPhoto: local.avatarPhoto };
       setUser(final);
       saveUserProfile(final);
     } else {
@@ -4819,10 +4962,14 @@ export default function FlourishAndFaith() {
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session?.user) {
+      if (event === 'PASSWORD_RECOVERY') {
+        isPasswordRecovery.current = true;
+        setScreen('reset-password');
+      } else if (event === 'SIGNED_IN' && session?.user && !isPasswordRecovery.current) {
         await restoreSupabaseSession(session.user, isNewSignup.current);
         isNewSignup.current = false;
       } else if (event === 'SIGNED_OUT') {
+        isPasswordRecovery.current = false;
         setUser(null);
         setScreen('landing');
       }
@@ -4841,18 +4988,15 @@ export default function FlourishAndFaith() {
 
   const handleAuth = async (data) => {
     // ── Supabase auth (when configured) ──
-    console.log('[FF] handleAuth start — supabase:', !!supabase, 'isLogin:', data.isLogin);
     if (supabase) {
       const timeout = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('Request timed out — please check your connection and try again.')), 10000)
       );
       if (data.isLogin) {
-        console.log('[FF] calling signInWithPassword...');
         const { data: authData, error } = await Promise.race([
           supabase.auth.signInWithPassword({ email: data.email, password: data.password }),
           timeout,
         ]);
-        console.log('[FF] signInWithPassword returned — error:', error?.message, 'user:', !!authData?.user);
         if (error) throw new Error(error.message);
         if (authData?.user) restoreSupabaseSession(authData.user, false);
       } else {
@@ -4920,16 +5064,24 @@ export default function FlourishAndFaith() {
     setScreen('app');
   };
 
+  const handleResetPasswordDone = async () => {
+    isPasswordRecovery.current = false;
+    const { data: { user: supaUser } } = await supabase.auth.getUser();
+    if (supaUser) restoreSupabaseSession(supaUser, false);
+    else setScreen('auth');
+  };
+
   const renderScreen = () => {
-    if(screen==='landing')      return <LandingPage onSignup={()=>setScreen('onboarding')} onSignIn={()=>setScreen('auth')}/>;
-    if(screen==='splash')       return <SplashScreen onDone={()=>setScreen('onboarding')}/>;
-    if(screen==='onboarding')   return <OnboardingScreen onDone={()=>setScreen('auth')}/>;
-    if(screen==='auth')         return <AuthScreen onDone={handleAuth}/>;
-    if(screen==='goals')        return <GoalSettingScreen onNext={()=>setScreen('personalize')}/>;
-    if(screen==='personalize')  return <PersonalizationScreen onNext={()=>setScreen('covenant')}/>;
-    if(screen==='covenant')     return <CovenantScreen onNext={()=>setScreen('subscription')} setUserCovenant={setCovenant}/>;
-    if(screen==='subscription') return <SubscriptionScreen onDone={handleSub}/>;
-    if(screen==='app')          return <MainApp user={user} onSignOut={handleSignOut}/>;
+    if(screen==='landing')        return <LandingPage onSignup={()=>setScreen('onboarding')} onSignIn={()=>setScreen('auth')}/>;
+    if(screen==='splash')         return <SplashScreen onDone={()=>setScreen('onboarding')}/>;
+    if(screen==='onboarding')     return <OnboardingScreen onDone={()=>setScreen('auth')}/>;
+    if(screen==='auth')           return <AuthScreen onDone={handleAuth}/>;
+    if(screen==='goals')          return <GoalSettingScreen onNext={()=>setScreen('personalize')}/>;
+    if(screen==='personalize')    return <PersonalizationScreen onNext={()=>setScreen('covenant')}/>;
+    if(screen==='covenant')       return <CovenantScreen onNext={()=>setScreen('subscription')} setUserCovenant={setCovenant}/>;
+    if(screen==='subscription')   return <SubscriptionScreen onDone={handleSub}/>;
+    if(screen==='reset-password') return <ResetPasswordScreen onDone={handleResetPasswordDone}/>;
+    if(screen==='app')            return <MainApp user={user} onSignOut={handleSignOut} onRootUpdateUser={setUser}/>;
     return null;
   };
 
